@@ -15,6 +15,7 @@ const DEFAULT_DEPOSIT_NOTICE = '신청 후 24시간 이내 입금';
 const profanityFilter = loadProfanityFilter();
 const pool = new Pool({
   connectionString: DATABASE_URL,
+  max: Number(process.env.PGPOOL_MAX || 1),
   ssl: shouldUseSsl(DATABASE_URL) ? { rejectUnauthorized: false } : false,
 });
 
@@ -262,4 +263,22 @@ async function api(req,res,url){
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg'};
 const server=http.createServer(async(req,res)=>{try{const url=new URL(req.url,BASE);if(url.pathname.startsWith('/api/'))return await api(req,res,url);if(url.pathname==='/admin'||url.pathname==='/admin/'){res.writeHead(302,{Location:'/login.html'});return res.end();}let file=url.pathname==='/'?'/index.html':url.pathname;if(/^\/tickets\/verify\/[^/]+$/.test(url.pathname))file='/ticket-verify.html';file=path.normalize(file).replace(/^(\.\.[/\\])+/, '');const full=path.join(ROOT,file);if(!full.startsWith(ROOT)||!fs.existsSync(full)||fs.statSync(full).isDirectory()){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream','Cache-Control':path.extname(full)==='.html'?'no-cache':'public, max-age=3600'});fs.createReadStream(full).pipe(res);}catch(e){console.error(e);if(!res.headersSent)json(res,500,{error:'서버 오류가 발생했습니다.'});}});
 
-initDb().then(()=>server.listen(PORT,()=>console.log(`Live Pocket: ${BASE}`))).catch(error=>{console.error('Database initialization failed:', error);process.exit(1);});
+const ready = initDb();
+
+if (require.main === module) {
+  ready
+    .then(() => server.listen(PORT, () => console.log(`Live Pocket: ${BASE}`)))
+    .catch(error => {
+      console.error('Database initialization failed:', error);
+      process.exit(1);
+    });
+}
+
+module.exports = (req, res) => {
+  ready
+    .then(() => server.emit('request', req, res))
+    .catch(error => {
+      console.error('Database initialization failed:', error);
+      if (!res.headersSent) json(res, 500, { error: '서버 초기화에 실패했습니다.' });
+    });
+};

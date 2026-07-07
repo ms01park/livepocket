@@ -32,4 +32,6 @@ The super admin account is created or updated from these environment variables w
 
 ## Deployment
 
+This repository is configured for Vercel + Supabase.
+
 See [DEPLOY.md](DEPLOY.md).

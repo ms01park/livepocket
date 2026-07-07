@@ -8,9 +8,7 @@
   "functions": {
     "api/server.js": {
       "maxDuration": 10,
-      "includeFiles": [
-        "config/**"
-      ]
+      "includeFiles": "config/**"
     }
   }
 }

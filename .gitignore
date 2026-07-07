@@ -9,3 +9,6 @@ live-pocket.db-wal
 ~$*.pptx
 CODEX_PROMPT.md
 PROJECT_CONTEXT.md
+
+.vercel
+.env*

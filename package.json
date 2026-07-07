@@ -1,0 +1,1 @@
+{"name":"live-pocket","version":"2.7.0","private":true,"scripts":{"start":"node server.js","dev":"node --watch server.js","migrate:pg":"node scripts/migrate-sqlite-to-postgres.cjs"},"dependencies":{"pg":"^8.16.3"},"engines":{"node":">=20"}}

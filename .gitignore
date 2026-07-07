@@ -1,0 +1,11 @@
+.env
+node_modules/
+npm-debug.log*
+*.log
+live-pocket.db
+live-pocket.db-shm
+live-pocket.db-wal
+*.pptx
+~$*.pptx
+CODEX_PROMPT.md
+PROJECT_CONTEXT.md

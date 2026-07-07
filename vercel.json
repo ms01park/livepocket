@@ -7,9 +7,13 @@
     { "source": "/tickets/verify/:token", "destination": "/ticket-verify.html" }
   ],
   "functions": {
+    "server.js": {
+      "maxDuration": 10,
+      "includeFiles": "{*.html,assets/**,config/**}"
+    },
     "api/server.js": {
       "maxDuration": 10,
-      "includeFiles": "config/**"
+      "includeFiles": "{*.html,assets/**,config/**}"
     }
   }
 }

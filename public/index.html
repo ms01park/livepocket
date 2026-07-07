@@ -1,0 +1,29 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="가까운 소규모 공연을 발견하고 예매하는 Live Pocket V2.7">
+  <title>Live Pocket V2.7 — 작은 공연을 가까이</title>
+  <link rel="stylesheet" href="/assets/styles.css?v=2.7.0">
+</head>
+<body data-page="home">
+  <header id="header"></header>
+  <main>
+    <section id="hero" class="hero" aria-label="추천 공연 배너"></section>
+    <section id="performances" class="wrap discover">
+      <div class="section-title"><div><span class="kicker">LIVE NEAR YOU</span><h1>오늘의 공연을<br>주머니에 담아보세요.</h1></div><p>좋아하는 음악과 가장 가까워지는 자리.<br>작은 무대의 큰 순간을 발견하세요.</p></div>
+      <form id="filters" class="filters">
+        <select name="scope" aria-label="검색 범위"><option value="all">모두</option><option value="genre">장르</option><option value="venue">공연장</option><option value="artist">아티스트</option><option value="host">호스트</option><option value="title">공연명</option></select>
+        <input name="q" aria-label="공연 검색" placeholder="찾고 싶은 공연을 검색하세요">
+        <input type="hidden" name="sort" value="date-asc">
+        <button class="btn dark" type="submit">검색</button>
+      </form>
+      <div class="sort-row" aria-label="공연 정렬"><button type="button" data-sort-key="popular" data-direction="desc">인기순 <i>↓</i></button><button class="active" type="button" data-sort-key="date" data-direction="asc">날짜순 <i>↑</i></button><button type="button" data-sort-key="price" data-direction="asc">가격순 <i>↑</i></button><button type="button" data-sort-key="registered" data-direction="desc">등록순 <i>↓</i></button><label class="bookable-filter"><input type="checkbox" name="bookable" form="filters"> 예매 가능</label></div>
+      <div id="performance-grid" class="performance-grid" aria-live="polite"></div>
+    </section>
+  </main>
+  <footer id="footer"></footer>
+  <script src="/assets/app.js?v=2.7.0"></script>
+</body>
+</html>

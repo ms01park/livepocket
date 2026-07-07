@@ -2,15 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": null,
   "rewrites": [
-    { "source": "/", "destination": "/api/server" },
-    { "source": "/(.*)", "destination": "/api/server" }
+    { "source": "/api/:path*", "destination": "/api/server" },
+    { "source": "/tickets/verify/:token", "destination": "/ticket-verify.html" }
   ],
   "functions": {
     "api/server.js": {
       "maxDuration": 10,
       "includeFiles": [
-        "*.html",
-        "assets/**",
         "config/**"
       ]
     }

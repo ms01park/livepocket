@@ -1,4 +1,4 @@
-﻿const $ = (selector, parent = document) => parent.querySelector(selector);
+const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
 const api = async (url, options = {}) => {
   const response = await fetch(url, {
@@ -20,8 +20,27 @@ const qs = name => new URLSearchParams(location.search).get(name);
 const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 })[char]);
-const APP_VERSION = 'V2.7';
+const APP_VERSION = 'V2.9';
 let me = null;
+let meLoad = null;
+const BANNER_CACHE_KEY = 'lp_banner_cache_bust';
+
+function loadMe() {
+  if (!meLoad) {
+    meLoad = api('/api/me')
+      .then(({ user }) => {
+        me = user;
+        return user;
+      })
+      .catch(() => null);
+  }
+  return meLoad;
+}
+
+function bannerApiUrl() {
+  const bust = localStorage.getItem(BANNER_CACHE_KEY);
+  return bust ? `/api/banners?b=${encodeURIComponent(bust)}` : '/api/banners';
+}
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -45,7 +64,7 @@ function shell() {
       <nav>
         <a href="/#performances">공연 찾기</a>
         <a href="/mypage.html">마이페이지</a>
-        <a id="auth-link" href="/login.html">로그인</a>
+        <a id="auth-link" href="#login">로그인</a>
       </nav>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span aria-hidden="true"></span></button>
       <button class="menu" type="button" aria-label="메뉴">☰</button>
@@ -56,10 +75,16 @@ function shell() {
   if (footer) footer.innerHTML = `<div class="footer-wrap"><a class="brand light" href="/"><b>LP</b><strong>Live Pocket</strong><em>${APP_VERSION}</em></a><p>작은 무대의 큰 순간을 가장 가까이에서.</p><small>© 2026 Live Pocket ${APP_VERSION}. All rights reserved.</small></div>`;
   $('.menu')?.addEventListener('click', () => $('#header nav').classList.toggle('open'));
   $('#theme-toggle')?.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
-  api('/api/me').then(({ user }) => {
-    me = user;
+  loadMe().then(user => {
     const auth = $('#auth-link');
-    if (!auth || !user) return;
+    if (!auth) return;
+    if (!user) {
+      auth.addEventListener('click', event => {
+        event.preventDefault();
+        showLoginModal(location.href);
+      });
+      return;
+    }
     auth.textContent = '로그아웃';
     auth.href = '#logout';
     auth.addEventListener('click', async event => {
@@ -83,7 +108,6 @@ function availabilityBadges(performance) {
   const state = bookingState(performance);
   const labels = [{ label: state.label, className: state.key }];
   if (Number(performance.remaining) < 10 && state.key === 'open') labels.push({ label: '마감 임박', className: 'secondary' });
-  if (performance.is_popular) labels.push({ label: '인기 공연', className: 'secondary' });
   return labels.map(item => `<span class="show-badge ${item.className}">${esc(item.label)}</span>`).join('');
 }
 
@@ -98,10 +122,9 @@ function compactArtistLabel(value, maxVisible = 2) {
 }
 
 const card = performance => `<article class="show-card"><a href="/concert-detail.html?id=${performance.id}">
-  <div class="poster-wrap"><img src="${esc(performance.poster_url)}" alt="${esc(performance.title)} 포스터"><div class="show-badges">${availabilityBadges(performance)}</div><span class="genre-badge">${esc(performance.genre)}</span></div>
+  <div class="poster-wrap"><img src="${esc(performance.poster_url)}" alt="${esc(performance.title)} 포스터"><div class="show-badges">${availabilityBadges(performance)}</div></div>
   <div class="show-info"><small class="show-date">${date(performance.start_at)}</small><h3>${esc(performance.title)}</h3><p title="${esc(performance.artists)}">${esc(compactArtistLabel(performance.artists))}</p>
-  <div><span>${esc(performance.venue_name)}</span><strong>${won(performance.price)}~</strong></div>
-  <div class="show-metrics"><span>남은 티켓 <b>${Number(performance.remaining || 0)}매</b></span><span>찜 <b>${Number(performance.favorite_count || 0)}</b></span></div></div>
+  <div><span>${esc(performance.venue_name)}</span><strong>${won(performance.price)}~</strong></div></div>
 </a></article>`;
 
 function markPopular(performances) {
@@ -109,6 +132,18 @@ function markPopular(performances) {
   const count = Math.max(1, Math.ceil(performances.length * 0.1));
   const ids = new Set(ranked.slice(0, count).filter(item => Number(item.favorite_count) > 0).map(item => item.id));
   performances.forEach(item => { item.is_popular = ids.has(item.id); });
+}
+
+const prefetchedPerformances = new Set();
+function prefetchPerformanceDetails(list) {
+  const ids = list.slice(0, 6).map(item => Number(item.id)).filter(Boolean).filter(id => !prefetchedPerformances.has(id));
+  if (!ids.length) return;
+  const run = () => ids.forEach(id => {
+    prefetchedPerformances.add(id);
+    fetch(`/api/performances/${id}`).catch(() => {});
+  });
+  if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1200 });
+  else setTimeout(run, 300);
 }
 
 function bindHero(hero, banners) {
@@ -129,6 +164,18 @@ function bindHero(hero, banners) {
   $('[data-hero-next]', hero)?.addEventListener('click', event => { event.stopPropagation(); show(index + 1); roll(); });
   $$('.hero-arrow', hero).forEach(button => button.addEventListener('pointerdown', event => event.stopPropagation()));
   $$('.hero-dots button', hero).forEach((dot, itemIndex) => dot.addEventListener('click', () => { show(itemIndex); roll(); }));
+  $$('.hero-slide', hero).forEach(slide => slide.addEventListener('click', event => {
+    if (suppressClick) {
+      event.preventDefault();
+      suppressClick = false;
+      return;
+    }
+    const href = slide.getAttribute('href');
+    if (!href || href === '#') return;
+    event.preventDefault();
+    if (slide.target === '_blank') window.open(href, '_blank', 'noopener');
+    else location.assign(href);
+  }));
   hero.addEventListener('pointerdown', event => {
     dragStart = event.clientX;
     hero.setPointerCapture?.(event.pointerId);
@@ -158,23 +205,29 @@ function bindHero(hero, banners) {
 }
 
 async function home() {
-  const [banners, performances] = await Promise.all([api('/api/banners'), api('/api/performances')]);
-  markPopular(performances);
   const hero = $('#hero');
-  if (banners.length) {
+  const grid = $('#performance-grid');
+  const renderHero = banners => {
+    if (!hero) return;
+    if (!banners.length) {
+      hero.innerHTML = '<div class="empty">노출 중인 배너가 없습니다.</div>';
+      return;
+    }
     hero.innerHTML = `<div class="hero-stage">${banners.map((banner, index) => {
       const href = normalizeLinkUrl(banner.link_url);
       const external = /^https?:\/\//i.test(href) && !href.startsWith(location.origin);
-      return `<a class="hero-slide ${index ? '' : 'active'}" href="${esc(href)}" ${external ? 'target="_blank" rel="noopener"' : ''} aria-label="${esc(banner.title)}"><img src="${esc(banner.image_url)}" alt="${esc(banner.title)}"></a>`;
+      return `<a class="hero-slide ${index ? '' : 'active'}" href="${esc(href)}" ${external ? 'target="_blank" rel="noopener"' : ''} aria-label="${esc(banner.title)}"><img src="${esc(banner.image_url)}" alt="${esc(banner.title)}" loading="${index ? 'lazy' : 'eager'}" fetchpriority="${index ? 'auto' : 'high'}" decoding="async"></a>`;
     }).join('')}
       <button class="hero-arrow prev" type="button" data-hero-prev aria-label="이전 배너">‹</button><button class="hero-arrow next" type="button" data-hero-next aria-label="다음 배너">›</button>
       <div class="hero-dots">${banners.map((_, index) => `<button class="${index ? '' : 'active'}" type="button" aria-label="${index + 1}번 배너"></button>`).join('')}</div></div>`;
     bindHero(hero, banners);
-  } else hero.innerHTML = '<div class="empty">노출 중인 배너가 없습니다.</div>';
+  };
 
   const render = list => {
-    $('#performance-grid').innerHTML = list.length ? list.map(card).join('') : '<div class="empty">조건에 맞는 공연이 없습니다.</div>';
+    grid.innerHTML = list.length ? list.map(card).join('') : '<div class="empty">조건에 맞는 공연이 없습니다.</div>';
+    prefetchPerformanceDetails(list);
   };
+  let performances = [];
   const runSearch = () => {
     const form = $('#filters');
     const data = new FormData(form);
@@ -183,8 +236,7 @@ async function home() {
     const sort = String(data.get('sort') || 'date-asc');
     const bookableOnly = data.get('bookable') === 'on';
     const fields = {
-      all: item => `${item.title} ${item.artists} ${item.genre} ${item.venue_name} ${item.host_name || ''}`,
-      genre: item => item.genre,
+      all: item => `${item.title} ${item.artists} ${item.venue_name} ${item.host_name || ''}`,
       venue: item => item.venue_name,
       artist: item => item.artists,
       host: item => item.host_name || '',
@@ -205,6 +257,8 @@ async function home() {
     list.sort(sorters[sort]);
     render(list);
   };
+  hero.innerHTML = '<div class="loading">배너를 불러오는 중…</div>';
+  grid.innerHTML = '<div class="loading">공연을 불러오는 중…</div>';
   $('#filters').addEventListener('submit', event => { event.preventDefault(); runSearch(); });
   $$('[data-sort-key]').forEach(button => button.addEventListener('click', () => {
     const active = button.classList.contains('active');
@@ -216,7 +270,16 @@ async function home() {
     runSearch();
   }));
   $('[name=bookable]').addEventListener('change', runSearch);
-  render(performances);
+  api(bannerApiUrl()).then(renderHero).catch(error => {
+    hero.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+  });
+  api('/api/performances').then(data => {
+    performances = data;
+    markPopular(performances);
+    render(performances);
+  }).catch(error => {
+    grid.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+  });
 }
 
 function calendarLinks(performance) {
@@ -232,10 +295,7 @@ function calendarLinks(performance) {
 
 function mapLinks(performance) {
   const destination = String(performance.address || performance.venue_name || '').trim();
-  return {
-    naver: `https://map.naver.com/v5/search/${encodeURIComponent(destination)}`,
-    kakao: `https://map.kakao.com/link/search/${encodeURIComponent(destination)}`,
-  };
+  return { kakao: `https://map.kakao.com/link/search/${encodeURIComponent(destination)}` };
 }
 
 function artistEntries(namesValue, avatarsValue) {
@@ -264,40 +324,50 @@ function artistCredits(performance) {
 
 function showLoginModal(next = location.href) {
   $('.login-modal')?.remove();
-  document.body.insertAdjacentHTML('beforeend', `<div class="modal login-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><span class="kicker">LOGIN REQUIRED</span><h2>로그인이 필요합니다</h2><p>계속 진행하려면 로그인해 주세요.</p><form id="modal-login" class="stack"><label>이메일<input type="email" name="email" autocomplete="username" required></label><label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label><div id="modal-login-error" class="alert error hidden"></div><button class="btn primary" type="submit">로그인</button><a class="btn outline" href="/login.html?tab=signup&next=${encodeURIComponent(next)}">회원가입</a></form></article></div>`);
+  const destination = () => {
+    try { const target = new URL(next, location.origin); return target.origin === location.origin ? `${target.pathname}${target.search}${target.hash}` : '/mypage.html'; }
+    catch { return '/mypage.html'; }
+  };
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal login-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><span class="kicker">ACCOUNT ACCESS</span><h2>로그인 또는 간편가입</h2><p>현재 화면에서 계정 인증을 완료할 수 있습니다.</p><div class="auth-tabs" role="tablist" aria-label="회원 인증"><button class="active" type="button" role="tab" aria-selected="true" data-modal-auth-tab="login">로그인</button><button type="button" role="tab" aria-selected="false" data-modal-auth-tab="signup">간편가입</button></div><form id="modal-login" class="stack" data-modal-auth-panel="login"><label>이메일<input type="email" name="email" autocomplete="username" required></label><label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label><button class="btn primary" type="submit">로그인</button></form><form id="modal-signup" class="stack hidden" data-modal-auth-panel="signup"><label>이메일<input type="email" name="email" autocomplete="email" required></label><label>비밀번호<input type="password" name="password" autocomplete="new-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,}" required><small>8자 이상, 영문과 숫자를 함께 입력해 주세요.</small></label><label>닉네임<input type="text" name="nickname" maxlength="30" required></label><button class="btn primary" type="submit">간편가입</button></form><div id="modal-login-error" class="alert error hidden"></div></article></div>`);
   $('.login-modal .modal-close').addEventListener('click', () => $('.login-modal').remove());
   $('.login-modal').addEventListener('click', event => { if (event.target === event.currentTarget) $('.login-modal .modal-close').click(); });
-  $('#modal-login').addEventListener('submit', async event => {
-    event.preventDefault();
-    const button = $('button[type="submit"]', event.currentTarget);
-    button.disabled = true;
-    try {
-      await api('/api/auth/login', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) });
-      location.href = next;
-    } catch (error) {
-      $('#modal-login-error').textContent = error.message;
-      $('#modal-login-error').classList.remove('hidden');
-      button.disabled = false;
-    }
-  });
+  $$('[data-modal-auth-tab]').forEach(button => button.addEventListener('click', () => {
+    $$('[data-modal-auth-tab]').forEach(item => { const active = item === button; item.classList.toggle('active', active); item.setAttribute('aria-selected', String(active)); });
+    $$('[data-modal-auth-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.modalAuthPanel !== button.dataset.modalAuthTab));
+    $('#modal-login-error').classList.add('hidden');
+  }));
+  const bindAuthForm = (selector, endpoint) => $(selector).addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = $('button[type="submit"]', event.currentTarget);
+      button.disabled = true;
+      try {
+        await api(endpoint, { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) });
+        location.href = destination();
+      } catch (error) {
+        $('#modal-login-error').textContent = error.message;
+        $('#modal-login-error').classList.remove('hidden');
+        button.disabled = false;
+      }
+    });
+  bindAuthForm('#modal-login', '/api/auth/login');
+  bindAuthForm('#modal-signup', '/api/auth/register');
 }
 
 async function detail() {
   const id = qs('id') || 1;
-  const performance = await api(`/api/performances/${id}`);
+  const [performance, user] = await Promise.all([api(`/api/performances/${id}`), loadMe()]);
   const links = calendarLinks(performance);
   const maps = mapLinks(performance);
-  const session = await api('/api/me');
-  me = session.user;
+  me = user;
   performance.remaining = performance.tickets.reduce((sum, item) => sum + Number(item.remaining_quantity), 0);
-  const ticketSummary = performance.tickets.map(ticket => `<div class="ticket-summary-row"><span>${esc(ticket.name)}</span><b>${won(ticket.price)}</b><small>남은 티켓 ${Number(ticket.remaining_quantity)} / ${Number(ticket.total_quantity)}매</small></div>`).join('');
+  const ticketSummary = performance.tickets.map(ticket => `<div class="ticket-summary-row"><span>${esc(ticket.name)}</span><b>${won(ticket.price)}</b></div>`).join('');
   document.title = `${performance.title} — Live Pocket ${APP_VERSION}`;
   $('#detail').innerHTML = `<nav class="crumb"><a href="/">홈</a><span>›</span><span>공연 상세</span></nav>
     <section class="detail-grid"><div class="detail-poster"><img src="${esc(performance.poster_url)}" alt="${esc(performance.title)} 포스터"></div>
-    <article class="detail-info"><div class="detail-badges">${availabilityBadges(performance)}</div><small>${esc(performance.genre)}</small><h1>${esc(performance.title)}</h1>
+    <article class="detail-info"><h1>${esc(performance.title)}</h1>
     <dl><div><dt>공연 일시</dt><dd class="detail-row-content"><span>${date(performance.start_at)}</span><div class="calendar-wrap"><button id="calendar-button" class="text-button map-button" type="button">캘린더에 추가</button><div id="calendar-menu" class="calendar-menu hidden"><a href="${esc(links.google)}" target="_blank" rel="noopener">Google · Android</a><a href="${links.ics}" download="${esc(performance.title)}.ics">Apple · iOS (.ics)</a></div></div></dd></div>
-    <div><dt>공연 장소</dt><dd class="venue-row"><span>${esc(performance.venue_name)}<small>${esc(performance.address)}</small></span><span class="map-actions"><a class="map-button" href="${esc(maps.naver)}" target="_blank" rel="noopener">네이버맵</a><a class="map-button" href="${esc(maps.kakao)}" target="_blank" rel="noopener">카카오맵</a></span></dd></div><div><dt>아티스트</dt><dd class="artist-credit">${artistCredits(performance)}</dd></div><div><dt>티켓</dt><dd class="ticket-summary">${ticketSummary}</dd></div><div><dt>총 남은 티켓</dt><dd>${performance.remaining}매</dd></div></dl>
-    <div class="button-row"><button id="favorite" class="btn outline" type="button" aria-label="찜하기">${performance.is_favorite ? '♥' : '♡'} <b>${performance.favorite_count}</b></button><a id="booking-link" class="btn primary grow" href="/booking.html?id=${performance.id}">예매하기</a></div></article></section>
+    <div><dt>공연 장소</dt><dd class="venue-row"><span>${esc(performance.venue_name)}</span><a class="map-icon-button" href="${esc(maps.kakao)}" target="_blank" rel="noopener" aria-label="카카오맵에서 공연장 보기" title="카카오맵에서 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Zm0-8.7A3.3 3.3 0 1 1 12 5.7a3.3 3.3 0 0 1 0 6.6Z"/></svg></a></dd></div><div><dt>아티스트</dt><dd class="artist-credit">${artistCredits(performance)}</dd></div><div><dt>티켓</dt><dd class="ticket-summary">${ticketSummary}</dd></div></dl>
+    <div class="button-row"><button id="favorite" class="btn outline" type="button" aria-label="찜하기"><span class="favorite-icon" aria-hidden="true">${performance.is_favorite ? '♥' : '♡'}</span> <b>${performance.favorite_count}</b></button><a id="booking-link" class="btn primary grow" href="/booking.html?id=${performance.id}">예매하기</a></div></article></section>
     <section class="description"><span class="kicker">ABOUT THE SHOW</span><h2>공연 소개</h2><p>${esc(performance.description)}</p><div class="notice"><b>예매 및 입장 안내</b><span>결제는 무통장 입금으로 진행됩니다. 입금 확인 후 QR 티켓이 발급되며, 공연 당일 예매 상세 화면의 QR로 입장할 수 있습니다.</span></div></section>
     <section class="recommendations"><div class="panel-title"><div><span class="kicker">YOU MAY ALSO LIKE</span><h2>추천 공연</h2></div></div><div class="performance-grid">${performance.recommendations.length ? performance.recommendations.map(card).join('') : '<div class="empty">추천할 공연을 준비 중입니다.</div>'}</div></section>`;
   $('#calendar-button').addEventListener('click', () => $('#calendar-menu').classList.toggle('hidden'));
@@ -312,7 +382,7 @@ async function detail() {
     if (!me) return showLoginModal(location.href);
     try {
       const result = await api(`/api/performances/${performance.id}/favorite`, { method: 'POST' });
-      $('#favorite').innerHTML = `${result.favorite ? '♥' : '♡'} <b>${result.favoriteCount}</b>`;
+      $('#favorite').innerHTML = `<span class="favorite-icon" aria-hidden="true">${result.favorite ? '♥' : '♡'}</span> <b>${result.favoriteCount}</b>`;
     } catch (error) {
       showLoginModal(location.href);
     }
@@ -328,16 +398,18 @@ async function booking() {
   const id = qs('id') || 1;
   let performance;
   try {
-    performance = await api(`/api/performances/${id}`);
-    const session = await api('/api/me');
-    me = session.user;
-    if (!me) throw Error('LOGIN');
+    [performance, me] = await Promise.all([api(`/api/performances/${id}`), loadMe()]);
   } catch (error) {
-    if (error.message === 'LOGIN') return location.href = `/login.html?next=${encodeURIComponent(location.href)}`;
     return $('#booking-content').innerHTML = `<div class="alert error">${esc(error.message)}</div>`;
   }
+  if (!me) {
+    $('#booking-content').innerHTML = '<div class="empty">로그인 또는 간편가입 후 예매를 계속할 수 있습니다.</div>';
+    showLoginModal(location.href);
+    return;
+  }
   const ticket = performance.tickets.find(item => Number(item.remaining_quantity) > 0) || performance.tickets[0];
-  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(performance.poster_url)}" alt=""><div><small>${esc(performance.genre)}</small><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(item.name)} · ${won(item.price)} · 남은 ${Number(item.remaining_quantity)}매</option>`).join('')}</select></label><label>수량<select name="quantity"></select></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div><div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small></div><label class="agree"><input type="checkbox" required> 예매 및 취소 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong><p id="ticket-remaining">선택한 티켓 잔여 수량 ${Number(ticket.remaining_quantity)}매</p></aside>`;
+  const questionFields = (performance.questions || []).map(question => `<label class="booking-question">${esc(question.question_text)}${question.is_required ? ' <i>필수</i>' : ''}<select data-question-id="${question.id}" ${question.is_required ? 'required' : ''}><option value="">선택해 주세요</option>${question.options.map(option => `<option value="${option.id}">${esc(option.option_text)}</option>`).join('')}</select></label>`).join('');
+  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(performance.poster_url)}" alt=""><div><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(item.name)} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small></div><label class="agree"><input type="checkbox" required> 예매 및 취소 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
   const form = $('#booking-form');
   form.phone.addEventListener('input', event => {
     const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
@@ -349,14 +421,15 @@ async function booking() {
     const limit = Math.min(4, Number(option.dataset.remaining || 0));
     form.quantity.innerHTML = Array.from({ length: limit }, (_, index) => index + 1).map(value => `<option ${value === Math.min(current, limit) ? 'selected' : ''}>${value}</option>`).join('');
     $('#total').textContent = won(Number(option.dataset.price) * Number(form.quantity.value || 0));
-    $('#ticket-remaining').textContent = `선택한 티켓 잔여 수량 ${Number(option.dataset.remaining || 0)}매`;
   };
   form.addEventListener('change', update);
   update();
   form.addEventListener('submit', async event => {
     event.preventDefault();
     try {
-      const result = await api('/api/reservations', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+      const payload = Object.fromEntries(new FormData(form));
+      payload.answers = $$('.booking-question select', form).filter(select => select.value).map(select => ({ questionId: Number(select.dataset.questionId), optionId: Number(select.value) }));
+      const result = await api('/api/reservations', { method: 'POST', body: JSON.stringify(payload) });
       sessionStorage.setItem('lastReservation', JSON.stringify(result));
       location.href = `/booking-complete.html?id=${result.id}`;
     } catch (error) {
@@ -375,8 +448,12 @@ const stats = items => `<div class="stats">${items.map(([label, value]) => `<art
 const statusName = status => ({ WAITING_DEPOSIT: '입금 대기', PAID: '예매 완료', CANCELLED: '취소', USED: '예매 완료', OPEN: '운영 중', HIDDEN: '숨김' })[status] || status;
 
 async function mypage() {
-  const { user } = await api('/api/me');
-  if (!user) return location.href = '/login.html';
+  const user = await loadMe();
+  if (!user) {
+    $('#mypage').innerHTML = '<div class="empty">로그인 또는 간편가입 후 마이페이지를 이용할 수 있습니다.</div>';
+    showLoginModal(location.href);
+    return;
+  }
   me = user;
   if (user.role === 'USER') return userPage(user);
   if (user.role === 'MANAGER') return adminPage(user, false);
@@ -406,7 +483,8 @@ async function reservationModal(id) {
     const reservation = await api(`/api/me/reservations/${id}`);
     const canShowQr = reservation.status === 'PAID' || reservation.status === 'USED';
     const verifyUrl = reservation.qr_verify_url || (reservation.qr_token ? `${location.origin}/tickets/verify/${encodeURIComponent(reservation.qr_token)}` : '');
-    document.body.insertAdjacentHTML('beforeend', `<div class="modal"><article><button class="modal-close" aria-label="닫기">×</button><span class="pill">${statusName(reservation.status)}</span><h2>${esc(reservation.title)}</h2><dl><div><dt>예매 번호</dt><dd>${esc(reservation.reservation_no)}</dd></div><div><dt>공연 일시</dt><dd>${date(reservation.start_at)}</dd></div><div><dt>결제 금액</dt><dd>${won(reservation.total_amount)}</dd></div></dl>${canShowQr && verifyUrl ? `<img class="qr-image" src="${qrImageUrl(verifyUrl)}" alt="예매 정보 확인 QR코드"><small class="qr-token">공연장 입구에서 이 QR코드를 제시해 주세요.<br>스태프가 예매 정보를 확인한 후 입장을 안내합니다.</small>` : `<div class="notice"><b>QR 발행 대기 중</b><span>입금 확인 후 이곳에 예매 정보 확인 QR이 표시됩니다.</span></div>`}</article></div>`);
+    const answers = (reservation.answers || []).map(answer => `<div><dt>${esc(answer.question_text)}</dt><dd>${esc(answer.answer_text)}</dd></div>`).join('');
+    document.body.insertAdjacentHTML('beforeend', `<div class="modal"><article><button class="modal-close" aria-label="닫기">×</button><span class="pill">${statusName(reservation.status)}</span><h2>${esc(reservation.title)}</h2><dl><div><dt>예매 번호</dt><dd>${esc(reservation.reservation_no)}</dd></div><div><dt>공연 일시</dt><dd>${date(reservation.start_at)}</dd></div><div><dt>결제 금액</dt><dd>${won(reservation.total_amount)}</dd></div>${answers}</dl>${canShowQr && verifyUrl ? `<img class="qr-image" src="${qrImageUrl(verifyUrl)}" alt="예매 정보 확인 QR코드"><small class="qr-token">공연장 입구에서 이 QR코드를 제시해 주세요.<br>스태프가 예매 정보를 확인한 후 입장을 안내합니다.</small>` : `<div class="notice"><b>QR 발행 대기 중</b><span>입금 확인 후 이곳에 예매 정보 확인 QR이 표시됩니다.</span></div>`}</article></div>`);
     $('.modal-close').addEventListener('click', () => { history.replaceState(null, '', '/mypage.html'); $('.modal').remove(); });
     $('.modal').addEventListener('click', event => { if (event.target === event.currentTarget) $('.modal-close').click(); });
   } catch (error) { alert(error.message); }
@@ -467,7 +545,7 @@ function performanceTable(performances) {
   return `<div class="show-management-list">${performances.map(item => {
     const state = bookingState(item);
     const sold = Number(item.total || 0) - Number(item.remaining || 0);
-    return `<article class="show-management-card"><a class="show-management-main" href="/concert-detail.html?id=${item.id}"><img src="${esc(item.poster_url)}" alt=""><span><b>${esc(item.title)}</b><small>${date(item.start_at)} · ${esc(item.venue_name || '')}</small></span></a><div class="show-management-meta"><span>판매 <b>${sold}/${Number(item.total || 0)}</b></span><span>♥ <b>${Number(item.favorite_count || 0)}</b></span><span class="pill state-${state.key}">${state.label}</span></div><div class="row-actions"><button class="tiny" data-show-stats="${item.id}" type="button">현황</button><a class="tiny secondary" href="/performance-form.html?id=${item.id}">수정</a><a class="tiny secondary" href="/api/admin/performances/${item.id}/reservations.csv" download="performance-${item.id}-reservations.csv">엑셀</a><button class="tiny danger" data-show-delete="${item.id}" type="button">삭제</button></div></article>`;
+    return `<article class="show-management-card"><a class="show-management-main" href="/concert-detail.html?id=${item.id}"><img src="${esc(item.poster_url)}" alt=""><span><b>${esc(item.title)}</b><small>${date(item.start_at)} · ${esc(item.venue_name || '')}</small></span></a><div class="show-management-meta"><span>판매 <b>${sold}/${Number(item.total || 0)}</b></span><span><i class="favorite-icon" aria-hidden="true">♥</i> <b>${Number(item.favorite_count || 0)}</b></span><span class="pill state-${state.key}">${state.label}</span></div><div class="row-actions"><button class="tiny" data-show-stats="${item.id}" type="button">현황</button><a class="tiny secondary" href="/performance-form.html?id=${item.id}">수정</a><a class="tiny secondary" href="/api/admin/performances/${item.id}/reservations.csv" download="performance-${item.id}-reservations.csv">엑셀</a><button class="tiny danger" data-show-delete="${item.id}" type="button">삭제</button></div></article>`;
   }).join('')}</div>`;
 }
 
@@ -497,7 +575,7 @@ function renderMetricsChart(key = 'all') {
 async function adminPage(user, superAdmin) {
   const data = superAdmin ? await api('/api/super-admin/dashboard') : await api('/api/admin/dashboard');
   const nav = superAdmin
-    ? [['dashboard', '플랫폼 대시보드'], ['members', '회원 관리'], ['shows', '전체 공연'], ['reservations', '전체 예매'], ['settings', '장르 · 배너']]
+    ? [['dashboard', '플랫폼 대시보드'], ['members', '회원 관리'], ['shows', '전체 공연'], ['reservations', '전체 예매'], ['settings', '배너 설정']]
     : [['dashboard', '공연 대시보드'], ['shows', '공연 관리'], ['reservations', '예매자 관리'], ['profile', '관리자 정보']];
   $('#mypage').classList.add('admin-page');
   $('#mypage').innerHTML = `<aside class="admin-side"><a class="brand" href="/"><b>LP</b><strong>Live Pocket</strong><em>${APP_VERSION}</em></a><span>${superAdmin ? '총 관리자' : '공연 관리자'}</span><nav>${nav.map((item, index) => `<button class="${index ? '' : 'active'}" data-admin-tab="${item[0]}" type="button">${item[1]}</button>`).join('')}</nav><button class="logout" type="button">↗ 로그아웃</button></aside><section class="admin-main"><header><div><small>${superAdmin ? 'PLATFORM ADMIN' : 'PERFORMANCE MANAGER'}</small><h1>${superAdmin ? '플랫폼 운영' : '공연 관리'}</h1></div><div class="admin-user"><i>${esc(user.name[0])}</i><span>${esc(user.name)}<small>${esc(user.email)}</small></span></div></header><div id="admin-panels"></div></section>`;
@@ -547,12 +625,11 @@ function superPanels(data) {
     const actions = item.role === 'SUPER_ADMIN' ? '—' : `<div class="row-actions"><button class="tiny secondary" data-user-edit="${item.id}" type="button">수정</button><button class="tiny danger" data-user-delete="${item.id}" type="button">삭제</button></div>`;
     return `<tr><td><b>${esc(item.name)}</b></td><td>${esc(item.email)}</td><td>${memberRoleLabel(item)}</td><td><span class="pill">${esc(item.status)}</span></td><td>${actions}</td></tr>`;
   }).join('');
-  const genreRows = (data.genres || []).map(item => `<span data-genre-id="${item.id}">${esc(item.name)} <button class="tiny secondary" data-genre-edit="${item.id}" type="button">수정</button><button class="tiny danger" data-genre-delete="${item.id}" type="button">삭제</button></span>`).join('');
   return `<section data-admin-panel="dashboard"><div class="compact-stats">${stats([['전체 회원', data.users], ['전체 공연', data.performances], ['전체 예매', data.reservations], ['전체 찜', data.favorites]])}</div></section>
     <section data-admin-panel="members"><div class="panel-title"><div><h2>회원 관리</h2><p>공연 등록 경험과 계정 상태를 확인합니다.</p></div></div>${table(['회원', '이메일', '구분', '상태', '관리'], memberRows)}</section>
     <section data-admin-panel="shows"><div class="panel-title"><div><h2>전체 공연 관리</h2><p>플랫폼에 등록된 공연을 관리합니다.</p></div><a class="btn primary" href="/performance-form.html">+ 공연 등록</a></div>${performanceTable(data.performanceList)}</section>
     <section data-admin-panel="reservations"><div class="panel-title"><div><h2>전체 예매 관리</h2></div></div><div id="admin-reservations" class="loading">불러오는 중…</div></section>
-    <section data-admin-panel="settings"><div class="panel-title"><div><h2>장르 · 배너 설정</h2><p>공연 장르와 홈 롤링 배너를 관리합니다.</p></div><button class="btn primary" type="button" data-banner-create>+ 신규 배너</button></div><div class="banner-admin" data-banner-list>${data.banners.map(banner => `<article draggable="true" data-banner-id="${banner.id}"><button class="drag-handle" type="button" aria-label="배너 순서 이동">☰</button><img src="${esc(banner.image_url)}" alt=""><div><b>${esc(banner.title)}</b><small>순서 ${banner.sort_order} · ${banner.is_active ? '노출 중' : '숨김'}</small></div><button class="tiny secondary" type="button" data-banner-edit="${banner.id}">수정</button></article>`).join('')}</div><div class="admin-card"><div class="panel-title"><div><h3>공연 장르</h3></div><button class="tiny" type="button" data-genre-create>장르 추가</button></div><div class="chips editable">${genreRows}</div></div></section>`;
+    <section data-admin-panel="settings"><div class="panel-title"><div><h2>배너 설정</h2><p>홈 롤링 배너의 내용과 노출 순서를 관리합니다.</p></div><button class="btn primary" type="button" data-banner-create>+ 신규 배너</button></div><div class="banner-admin" data-banner-list>${data.banners.map(banner => `<article draggable="true" data-banner-id="${banner.id}"><button class="drag-handle" type="button" aria-label="배너 순서 이동">☰</button><img src="${esc(banner.image_url)}" alt=""><div><b>${esc(banner.title)}</b><small>순서 ${banner.sort_order} · ${banner.is_active ? '노출 중' : '숨김'}</small></div><div class="row-actions"><button class="tiny secondary" type="button" data-banner-edit="${banner.id}">수정</button><button class="tiny danger" type="button" data-banner-delete="${banner.id}">삭제</button></div></article>`).join('')}</div></section>`;
 }
 async function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -560,6 +637,30 @@ async function fileToDataUrl(file) {
     reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+async function fileToBannerDataUrl(file) {
+  const source = await fileToDataUrl(file);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const width = 1920;
+      const height = 600;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(width / img.width, height / img.height);
+      const drawWidth = img.width * scale;
+      const drawHeight = img.height * scale;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+      resolve(canvas.toDataURL('image/jpeg', 0.84));
+    };
+    img.onerror = () => resolve(source);
+    img.src = source;
   });
 }
 
@@ -584,6 +685,8 @@ async function cropImageFile(file, width, height, round = false) {
       offsetX = Math.max(-maxX, Math.min(maxX, offsetX));
       offsetY = Math.max(-maxY, Math.min(maxY, offsetY));
       ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, (width - w) / 2 + offsetX, (height - h) / 2 + offsetY, w, h);
     };
     img.onload = draw;
@@ -603,7 +706,7 @@ async function cropImageFile(file, width, height, round = false) {
     canvas.addEventListener('pointercancel', () => { drag = null; });
     $('.modal-close', modal).addEventListener('click', () => { modal.remove(); resolve(source); });
     $('[data-crop-apply]', modal).addEventListener('click', () => {
-      let result = canvas.toDataURL('image/png');
+      let result = round ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.84);
       if (round) {
         const masked = document.createElement('canvas');
         masked.width = width;
@@ -746,22 +849,24 @@ function showFormHtml(item = {}) {
   const editing = Boolean(item.id);
   const localDate = value => value ? new Date(value).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16) : '';
   const tickets = item.tickets?.length ? item.tickets : [{ name: '일반 티켓', price: item.price || 0, total_quantity: item.total || 50 }];
+  const questions = Array.isArray(item.questions) ? item.questions : [];
   const ticketRow = ticket => `<div class="ticket-row"><label>티켓명<input name="ticket_name" value="${esc(ticket.name || '일반 티켓')}" placeholder="일반 티켓"></label><label>금액<input type="number" name="ticket_price" min="0" value="${ticket.price || 0}" placeholder="금액"></label><label>수량<input type="number" name="ticket_quantity" min="1" value="${ticket.total_quantity || ticket.total || 50}" placeholder="수량"></label><button class="tiny danger" type="button" data-ticket-remove>삭제</button></div>`;
-  return `<section class="page-head"><span class="kicker">${editing ? 'EDIT PERFORMANCE' : 'NEW PERFORMANCE'}</span><h1>${editing ? '공연 수정' : '공연 등록'}</h1><p>공연 정보와 티켓 수량을 한 화면에서 관리합니다.</p></section><section class="show-form-page"><form id="show-form" class="stack"><div class="two"><label>공연명<input name="title" required value="${esc(item.title || '')}"></label><label>장르<div class="genre-action"><select name="genre" required></select><button class="tiny secondary" type="button" data-genre-add>추가</button></div></label></div><input type="hidden" name="poster_url" value="${esc(item.poster_url || '/assets/poster-1.svg')}"><input type="hidden" name="artist_avatar_url" value="${esc(item.artist_avatar_url || '/assets/artist-avatar.svg')}"><input type="hidden" name="artists" required value="${esc(item.artists || '')}"><label>아티스트<div class="artist-list" id="artist-list"></div><button class="tiny secondary" type="button" data-artist-add>아티스트 추가</button></label><label>공연 소개<textarea name="description" required>${esc(item.description || '')}</textarea></label><label class="file-field">포스터 이미지<input type="file" name="poster_file" accept="image/*"><small>이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.</small></label><div class="two"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div><div class="two"><label>공연 일시<input type="datetime-local" name="start_at" required value="${localDate(item.start_at)}"></label><label>예매 시작<input type="datetime-local" name="booking_start_at" required value="${localDate(item.booking_start_at || new Date().toISOString())}"></label></div><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div><label>결제 안내 문구<input name="deposit_notice" required value="${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}"></label><div id="show-form-error" class="alert error hidden"></div><div class="button-row"><a class="btn outline" href="/mypage.html">취소</a><button class="btn primary grow" type="submit">${editing ? '수정 저장' : '공연 등록'}</button></div></form></section>`;
+  const optionRow = option => `<div class="question-option-row"><input name="question_option" value="${esc(option.option_text || option || '')}" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div>`;
+  const questionRow = question => `<div class="question-row"><div class="question-row-head"><label>질문<input name="question_text" value="${esc(question.question_text || '')}" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label class="question-required"><input type="checkbox" name="question_required" ${question.is_required === false ? '' : 'checked'}> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><div class="question-options">${(question.options?.length ? question.options : ['', '']).map(optionRow).join('')}</div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>`;
+  return `<section class="page-head"><span class="kicker">${editing ? 'EDIT PERFORMANCE' : 'NEW PERFORMANCE'}</span><h1>${editing ? '공연 수정' : '공연 등록'}</h1><p>공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.</p></section><section class="show-form-page"><form id="show-form" class="stack"><label>공연명<input name="title" required value="${esc(item.title || '')}"></label><input type="hidden" name="poster_url" value="${esc(item.poster_url || '/assets/poster-1.svg')}"><input type="hidden" name="artist_avatar_url" value="${esc(item.artist_avatar_url || '/assets/artist-avatar.svg')}"><input type="hidden" name="artists" required value="${esc(item.artists || '')}"><label>아티스트<div class="artist-list" id="artist-list"></div><button class="tiny secondary" type="button" data-artist-add>아티스트 추가</button></label><label>공연 소개<textarea name="description" required>${esc(item.description || '')}</textarea></label><label class="file-field">포스터 이미지<input type="file" name="poster_file" accept="image/*"><small>이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.</small></label><div class="two"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div><div class="two"><label>공연 일시<input type="datetime-local" name="start_at" required value="${localDate(item.start_at)}"></label><label>예매 시작<input type="datetime-local" name="booking_start_at" required value="${localDate(item.booking_start_at || new Date().toISOString())}"></label></div><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div><div class="question-editor"><div><b>예매 추가 질문</b><small>예매자가 선택할 질문과 선택지를 필요한 만큼 추가할 수 있습니다.</small></div><div id="question-rows">${questions.map(questionRow).join('')}</div><button class="tiny secondary" type="button" data-question-add>질문 추가</button></div><label>결제 안내 문구<input name="deposit_notice" required value="${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}"></label><div id="show-form-error" class="alert error hidden"></div><div class="button-row"><a class="btn outline" href="/mypage.html">취소</a><button class="btn primary grow" type="submit">${editing ? '수정 저장' : '공연 등록'}</button></div></form></section>`;
 }
 
 async function bindShowForm(item = {}) {
   const editing = Boolean(item.id);
   const form = $('#show-form');
-  await setGenreOptions(form.genre, item.genre);
   renderArtistList(form);
   autoGrowTextarea(form.description);
   form.description.addEventListener('input', event => autoGrowTextarea(event.currentTarget));
-  $('[data-genre-add]').addEventListener('click', () => openGenreModal(form.genre));
   $('[data-artist-add]').addEventListener('click', () => openArtistAddModal(form));
   $('[data-address-search]').addEventListener('click', () => openAddressSearch(form));
   form.poster_file.addEventListener('change', async event => { if (event.currentTarget.files[0]) form.poster_url.value = await openPosterPreview(event.currentTarget.files[0]); });
   $('[data-ticket-add]').addEventListener('click', () => $('#ticket-rows').insertAdjacentHTML('beforeend', '<div class="ticket-row"><label>티켓명<input name="ticket_name" value="일반 티켓" placeholder="일반 티켓"></label><label>금액<input type="number" name="ticket_price" min="0" value="0" placeholder="금액"></label><label>수량<input type="number" name="ticket_quantity" min="1" value="50" placeholder="수량"></label><button class="tiny danger" type="button" data-ticket-remove>삭제</button></div>'));
+  $('[data-question-add]').addEventListener('click', () => $('#question-rows').insertAdjacentHTML('beforeend', '<div class="question-row"><div class="question-row-head"><label>질문<input name="question_text" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label class="question-required"><input type="checkbox" name="question_required" checked> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><div class="question-options"><div class="question-option-row"><input name="question_option" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div><div class="question-option-row"><input name="question_option" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div></div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>'));
   $('#artist-list').addEventListener('click', event => {
     const editButton = event.target.closest('[data-artist-edit]');
     const deleteButton = event.target.closest('[data-artist-delete]');
@@ -773,7 +878,12 @@ async function bindShowForm(item = {}) {
     renderArtistList(form);
   });
   window.addEventListener('resize', () => renderArtistList(form));
-  $('#show-form').addEventListener('click', event => { if (event.target.matches('[data-ticket-remove]')) event.target.closest('.ticket-row').remove(); });
+  $('#show-form').addEventListener('click', event => {
+    if (event.target.matches('[data-ticket-remove]')) event.target.closest('.ticket-row').remove();
+    if (event.target.matches('[data-question-remove]')) event.target.closest('.question-row').remove();
+    if (event.target.matches('[data-option-remove]')) event.target.closest('.question-option-row').remove();
+    if (event.target.matches('[data-option-add]')) event.target.closest('.question-row').querySelector('.question-options').insertAdjacentHTML('beforeend', '<div class="question-option-row"><input name="question_option" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div>');
+  });
   $('#show-form').addEventListener('submit', async event => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
@@ -785,7 +895,12 @@ async function bindShowForm(item = {}) {
       price: $('[name=ticket_price]', row).value,
       total_quantity: $('[name=ticket_quantity]', row).value,
     }));
-    delete payload.poster_file; delete payload.ticket_name; delete payload.ticket_price; delete payload.ticket_quantity;
+    payload.questions = $$('.question-row', event.currentTarget).map(row => ({
+      question_text: $('[name=question_text]', row).value,
+      is_required: $('[name=question_required]', row).checked,
+      options: $$('[name=question_option]', row).map(input => input.value),
+    }));
+    delete payload.poster_file; delete payload.ticket_name; delete payload.ticket_price; delete payload.ticket_quantity; delete payload.question_text; delete payload.question_required; delete payload.question_option;
     try {
       await api(editing ? `/api/performances/${item.id}` : '/api/performances', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
       location.href = '/mypage.html';
@@ -797,8 +912,12 @@ async function bindShowForm(item = {}) {
 }
 
 async function showFormPage() {
-  const { user } = await api('/api/me');
-  if (!user) return location.href = `/login.html?next=${encodeURIComponent(location.href)}`;
+  const user = await loadMe();
+  if (!user) {
+    $('#performance-form').innerHTML = '<div class="empty">로그인 또는 간편가입 후 공연을 등록할 수 있습니다.</div>';
+    showLoginModal(location.href);
+    return;
+  }
   me = user;
   const id = qs('id');
   const item = id ? await api(`/api/performances/${id}`) : {};
@@ -819,7 +938,7 @@ async function openStatsModal(id) {
   const data = await api(`/api/admin/performances/${id}/stats`);
   const max = Math.max(1, ...data.daily.map(row => Number(row.reservations)));
   const summary = data.summary || {};
-  const reservationRows = data.reservations.length ? data.reservations.map(row => `<article class="stats-reservation-row"><span><b>${esc(row.reservation_no)}</b><small>${esc(row.user_name)} · ${esc(row.email)}</small></span><span class="stats-reservation-payment"><strong>${won(row.total_amount)}</strong><em>${statusName(row.status)}</em></span><span>${row.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-stats-paid="${row.id}" type="button">입금 확인</button>` : '처리 완료'}</span></article>`).join('') : '<div class="empty">아직 예매가 없습니다.</div>';
+  const reservationRows = data.reservations.length ? data.reservations.map(row => `<article class="stats-reservation-row"><span><b>${esc(row.reservation_no)}</b><small>${esc(row.user_name)} · ${esc(row.email)}</small>${(row.answers || []).map(answer => `<small class="reservation-answer"><b>${esc(answer.question_text)}</b> ${esc(answer.answer_text)}</small>`).join('')}</span><span class="stats-reservation-payment"><strong>${won(row.total_amount)}</strong><em>${statusName(row.status)}</em></span><span>${row.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-stats-paid="${row.id}" type="button">입금 확인</button>` : '처리 완료'}</span></article>`).join('') : '<div class="empty">아직 예매가 없습니다.</div>';
   document.body.insertAdjacentHTML('beforeend', `<div class="modal stats-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><div class="panel-title"><div><span class="kicker">BOOKING STATUS</span><h2>예매 현황</h2></div></div><div class="compact-stats">${stats([['판매 티켓', `${Number(summary.soldTickets || 0)}/${Number(summary.totalTickets || 0)}매`], ['총 결제 금액', won(summary.totalAmount)], ['입금 확인 금액', won(summary.paidAmount)], ['예매 건수', `${data.reservations.length}건`]])}</div><div class="daily-chart compact">${data.daily.length ? data.daily.map(row => `<div><i style="height:${Math.max(4, Number(row.reservations) / max * 72)}px"></i><small>${esc(row.date.slice(5))}</small><b>${Number(row.reservations)}</b></div>`).join('') : '<p class="empty">아직 예매가 없습니다.</p>'}</div><div class="stats-reservation-list">${reservationRows}</div></article></div>`);
   $('.stats-modal .modal-close').addEventListener('click', () => $('.stats-modal').remove());
   $$('[data-stats-paid]').forEach(button => button.addEventListener('click', async () => {
@@ -841,7 +960,7 @@ function openBannerForm(item = {}) {
   const editing = Boolean(item.id);
   document.body.insertAdjacentHTML('beforeend', `<div class="modal form-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><span class="kicker">${editing ? 'EDIT BANNER' : 'NEW BANNER'}</span><h2>${editing ? '배너 수정' : '신규 배너'}</h2><form id="banner-form" class="stack"><label>관리용 제목<input name="title" required value="${esc(item.title || '')}"></label><label>보조 설명<input name="subtitle" value="${esc(item.subtitle || '')}"></label><input type="hidden" name="image_url" required value="${esc(item.image_url || '/assets/banner-1.svg')}"><label>배너 이미지<input type="file" name="banner_file" accept="image/*"><small>권장 크기: 1920x600px, 넓은 가로형 이미지</small></label><label>연결 URL<input name="link_url" required value="${esc(item.link_url || '/')}"></label><div class="two"><label>노출 순서<input type="number" name="sort_order" min="0" value="${item.sort_order ?? 0}"></label><label class="check-label"><input type="checkbox" name="is_active" ${item.is_active === 0 ? '' : 'checked'}> 노출하기</label></div><div id="banner-form-error" class="alert error hidden"></div><button class="btn primary" type="submit">${editing ? '수정 저장' : '배너 추가'}</button></form></article></div>`);
   $('.modal-close').addEventListener('click', () => $('.modal').remove());
-  $('#banner-form').banner_file.addEventListener('change', async event => { if (event.currentTarget.files[0]) $('#banner-form').image_url.value = await fileToDataUrl(event.currentTarget.files[0]); });
+  $('#banner-form').banner_file.addEventListener('change', async event => { if (event.currentTarget.files[0]) $('#banner-form').image_url.value = await fileToBannerDataUrl(event.currentTarget.files[0]); });
   $('#banner-form').addEventListener('submit', async event => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
@@ -850,6 +969,7 @@ function openBannerForm(item = {}) {
     delete payload.banner_file;
     try {
       await api(editing ? `/api/super-admin/banners/${item.id}` : '/api/super-admin/banners', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
+      localStorage.setItem(BANNER_CACHE_KEY, String(Date.now()));
       location.reload();
     } catch (error) {
       $('#banner-form-error').textContent = error.message;
@@ -861,6 +981,11 @@ function openBannerForm(item = {}) {
 function bindBannerActions() {
   $('[data-banner-create]')?.addEventListener('click', () => openBannerForm());
   $$('[data-banner-edit]').forEach(button => button.addEventListener('click', async () => openBannerForm(await api(`/api/super-admin/banners/${button.dataset.bannerEdit}`))));
+  $$('[data-banner-delete]').forEach(button => button.addEventListener('click', async () => {
+    if (!confirm('이 배너를 삭제할까요? 홈 화면에서도 더 이상 노출되지 않습니다.')) return;
+    await api(`/api/super-admin/banners/${button.dataset.bannerDelete}`, { method: 'DELETE' });
+    location.assign('/mypage.html#settings');
+  }));
   const bannerList = $('[data-banner-list]');
   let draggedBanner = null;
   if (bannerList) {
@@ -926,10 +1051,10 @@ function bindBannerActions() {
 async function bindAdminActions() {
   if ($('#admin-reservations')) {
     const rows = await api('/api/admin/reservations');
-    $('#admin-reservations').innerHTML = table(['예매번호', '공연 / 예매자', '금액', '상태', '처리'], rows.map(reservation => `<tr><td>${esc(reservation.reservation_no)}</td><td><b>${esc(reservation.title)}</b><small>${esc(reservation.user_name)}</small></td><td>${won(reservation.total_amount)}</td><td>${statusName(reservation.status)}</td><td>${reservation.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-paid="${reservation.id}">입금 확인</button>` : '—'}</td></tr>`).join(''));
+    $('#admin-reservations').innerHTML = table(['예매번호', '공연 / 예매자', '추가 답변', '금액', '상태', '처리'], rows.map(reservation => `<tr><td>${esc(reservation.reservation_no)}</td><td><b>${esc(reservation.title)}</b><small>${esc(reservation.user_name)}</small></td><td>${(reservation.answers || []).length ? reservation.answers.map(answer => `<small class="reservation-answer"><b>${esc(answer.question_text)}</b><br>${esc(answer.answer_text)}</small>`).join('') : '—'}</td><td>${won(reservation.total_amount)}</td><td>${statusName(reservation.status)}</td><td>${reservation.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-paid="${reservation.id}">입금 확인</button>` : '—'}</td></tr>`).join(''));
     $$('[data-paid]').forEach(button => button.addEventListener('click', async () => {
       await api(`/api/admin/reservations/${button.dataset.paid}`, { method: 'PATCH', body: JSON.stringify({ status: 'PAID' }) });
-      button.closest('tr').children[3].textContent = '결제 완료';
+      button.closest('tr').children[4].textContent = '결제 완료';
       button.remove();
     }));
   }

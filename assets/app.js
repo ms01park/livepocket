@@ -20,10 +20,16 @@ const qs = name => new URLSearchParams(location.search).get(name);
 const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 })[char]);
-const APP_VERSION = 'V2.9';
+const APP_VERSION = 'V3.0';
 let me = null;
 let meLoad = null;
 const BANNER_CACHE_KEY = 'lp_banner_cache_bust';
+
+function posterUrl(value, size = 'detail') {
+  const source = String(value || '');
+  if (!/^\/api\/performance-poster\/\d+(?:\?|$)/.test(source)) return source;
+  return `${source}${source.includes('?') ? '&' : '?'}size=${encodeURIComponent(size)}`;
+}
 
 function loadMe() {
   if (!meLoad) {
@@ -122,7 +128,7 @@ function compactArtistLabel(value, maxVisible = 2) {
 }
 
 const card = performance => `<article class="show-card"><a href="/concert-detail.html?id=${performance.id}">
-  <div class="poster-wrap"><img src="${esc(performance.poster_url)}" alt="${esc(performance.title)} 포스터"><div class="show-badges">${availabilityBadges(performance)}</div></div>
+  <div class="poster-wrap"><img src="${esc(posterUrl(performance.poster_url, 'card'))}" alt="${esc(performance.title)} 포스터" loading="lazy" decoding="async"><div class="show-badges">${availabilityBadges(performance)}</div></div>
   <div class="show-info"><small class="show-date">${date(performance.start_at)}</small><h3>${esc(performance.title)}</h3><p title="${esc(performance.artists)}">${esc(compactArtistLabel(performance.artists))}</p>
   <div><span>${esc(performance.venue_name)}</span><strong>${won(performance.price)}~</strong></div></div>
 </a></article>`;
@@ -359,14 +365,17 @@ async function detail() {
   const ticketSummary = performance.tickets.map(ticket => `<div class="ticket-summary-row"><span>${esc(ticket.name)}</span><b>${won(ticket.price)}</b></div>`).join('');
   document.title = `${performance.title} — Live Pocket ${APP_VERSION}`;
   $('#detail').innerHTML = `<nav class="crumb"><a href="/">홈</a><span>›</span><span>공연 상세</span></nav>
-    <section class="detail-grid"><div class="detail-poster"><img src="${esc(performance.poster_url)}" alt="${esc(performance.title)} 포스터"></div>
+    <section class="detail-grid"><div class="detail-poster"><img src="${esc(posterUrl(performance.poster_url, 'detail'))}" alt="${esc(performance.title)} 포스터" decoding="async"></div>
     <article class="detail-info"><h1>${esc(performance.title)}</h1>
-    <dl><div><dt>공연 일시</dt><dd class="detail-row-content"><span>${date(performance.start_at)}</span><div class="calendar-wrap"><button id="calendar-button" class="text-button map-button" type="button">캘린더에 추가</button><div id="calendar-menu" class="calendar-menu hidden"><a href="${esc(links.google)}" target="_blank" rel="noopener">Google · Android</a><a href="${links.ics}" download="${esc(performance.title)}.ics">Apple · iOS (.ics)</a></div></div></dd></div>
+    <dl><div><dt>공연 일시</dt><dd class="detail-row-content"><span>${date(performance.start_at)}</span><div class="calendar-wrap"><button id="calendar-button" class="map-icon-button calendar-icon-button" type="button" aria-label="캘린더에 추가" title="캘린더에 추가" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Zm12 9H5v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8ZM6 6a1 1 0 0 0-1 1v2h14V7a1 1 0 0 0-1-1H6Zm6 7a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 0 1 1-1Z"/></svg></button><div id="calendar-menu" class="calendar-menu hidden" role="menu"><a href="${esc(links.google)}" target="_blank" rel="noopener" role="menuitem">Google · Android</a><a href="${links.ics}" download="${esc(performance.title)}.ics" role="menuitem">Apple · iOS (.ics)</a></div></div></dd></div>
     <div><dt>공연 장소</dt><dd class="venue-row"><span>${esc(performance.venue_name)}</span><a class="map-icon-button" href="${esc(maps.kakao)}" target="_blank" rel="noopener" aria-label="카카오맵에서 공연장 보기" title="카카오맵에서 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Zm0-8.7A3.3 3.3 0 1 1 12 5.7a3.3 3.3 0 0 1 0 6.6Z"/></svg></a></dd></div><div><dt>아티스트</dt><dd class="artist-credit">${artistCredits(performance)}</dd></div><div><dt>티켓</dt><dd class="ticket-summary">${ticketSummary}</dd></div></dl>
     <div class="button-row"><button id="favorite" class="btn outline" type="button" aria-label="찜하기"><span class="favorite-icon" aria-hidden="true">${performance.is_favorite ? '♥' : '♡'}</span> <b>${performance.favorite_count}</b></button><a id="booking-link" class="btn primary grow" href="/booking.html?id=${performance.id}">예매하기</a></div></article></section>
     <section class="description"><span class="kicker">ABOUT THE SHOW</span><h2>공연 소개</h2><p>${esc(performance.description)}</p><div class="notice"><b>예매 및 입장 안내</b><span>결제는 무통장 입금으로 진행됩니다. 입금 확인 후 QR 티켓이 발급되며, 공연 당일 예매 상세 화면의 QR로 입장할 수 있습니다.</span></div></section>
     <section class="recommendations"><div class="panel-title"><div><span class="kicker">YOU MAY ALSO LIKE</span><h2>추천 공연</h2></div></div><div class="performance-grid">${performance.recommendations.length ? performance.recommendations.map(card).join('') : '<div class="empty">추천할 공연을 준비 중입니다.</div>'}</div></section>`;
-  $('#calendar-button').addEventListener('click', () => $('#calendar-menu').classList.toggle('hidden'));
+  $('#calendar-button').addEventListener('click', event => {
+    const hidden = $('#calendar-menu').classList.toggle('hidden');
+    event.currentTarget.setAttribute('aria-expanded', String(!hidden));
+  });
   const state = bookingState(performance);
   if (state.key !== 'open') {
     const link = $('#booking-link');
@@ -405,7 +414,7 @@ async function booking() {
   }
   const ticket = performance.tickets.find(item => Number(item.remaining_quantity) > 0) || performance.tickets[0];
   const questionFields = (performance.questions || []).map(question => `<label class="booking-question">${esc(question.question_text)}${question.is_required ? ' <i>필수</i>' : ''}<select data-question-id="${question.id}" ${question.is_required ? 'required' : ''}><option value="">선택해 주세요</option>${question.options.map(option => `<option value="${option.id}">${esc(option.option_text)}</option>`).join('')}</select></label>`).join('');
-  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(performance.poster_url)}" alt=""><div><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(item.name)} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small></div><label class="agree"><input type="checkbox" required> 예매 및 취소 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
+  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(posterUrl(performance.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(item.name)} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small></div><label class="agree"><input type="checkbox" required> 예매 및 취소 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
   const form = $('#booking-form');
   form.phone.addEventListener('input', event => {
     const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
@@ -461,7 +470,7 @@ async function userPage(user) {
   markPopular(favorites);
   $('#mypage').innerHTML = `<section class="my-head"><div><span class="kicker">MY LIVE POCKET</span><h1>${esc(user.name)}님,<br>반가워요.</h1><p>${esc(user.email)}</p></div><button class="btn outline logout" type="button">로그아웃</button></section>
     <div class="tabs"><button class="active" data-tab="booking">예매 내역 <b>${reservations.length}</b></button><button data-tab="favorite">찜한 공연 <b>${favorites.length}</b></button><button data-tab="manage">공연 관리 <b>${managed.length}</b></button></div>
-    <section data-panel="booking" class="tab-panel active"><h2>최근 예매</h2><div class="reservation-list">${reservations.length ? reservations.map(reservation => `<article class="reservation"><a class="reservation-show" href="/concert-detail.html?id=${reservation.performance_id}"><img src="${esc(reservation.poster_url)}" alt=""><div><span class="pill">${statusName(reservation.status)}</span><h3>${esc(reservation.title)}</h3><p>${date(reservation.start_at)} · ${esc(reservation.venue_name)}</p><small>예매번호 ${esc(reservation.reservation_no)}</small></div></a><button class="reservation-confirm" type="button" data-reservation="${reservation.id}">예매 확인</button></article>`).join('') : '<div class="empty">아직 예매한 공연이 없습니다.</div>'}</div></section>
+    <section data-panel="booking" class="tab-panel active"><h2>최근 예매</h2><div class="reservation-list">${reservations.length ? reservations.map(reservation => `<article class="reservation"><a class="reservation-show" href="/concert-detail.html?id=${reservation.performance_id}"><img src="${esc(posterUrl(reservation.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><span class="pill">${statusName(reservation.status)}</span><h3>${esc(reservation.title)}</h3><p>${date(reservation.start_at)} · ${esc(reservation.venue_name)}</p><small>예매번호 ${esc(reservation.reservation_no)}</small></div></a><button class="reservation-confirm" type="button" data-reservation="${reservation.id}">예매 확인</button></article>`).join('') : '<div class="empty">아직 예매한 공연이 없습니다.</div>'}</div></section>
     <section data-panel="favorite" class="tab-panel"><h2>찜한 공연</h2><div class="performance-grid">${favorites.length ? favorites.map(card).join('') : '<div class="empty">찜한 공연이 없습니다.</div>'}</div></section>
     <section data-panel="manage" class="tab-panel"><div class="panel-title"><div><h2>내 공연 관리</h2><p>가입한 계정으로 공연을 등록하고 운영할 수 있습니다.</p></div><a class="btn primary" href="/performance-form.html">+ 공연 등록</a></div>${performanceTable(managed)}</section>`;
   bindTabs();
@@ -541,7 +550,7 @@ function performanceTable(performances) {
   return `<div class="show-management-list">${performances.map(item => {
     const state = bookingState(item);
     const sold = Number(item.total || 0) - Number(item.remaining || 0);
-    return `<article class="show-management-card"><a class="show-management-main" href="/concert-detail.html?id=${item.id}"><img src="${esc(item.poster_url)}" alt=""><span><b>${esc(item.title)}</b><small>${date(item.start_at)} · ${esc(item.venue_name || '')}</small></span></a><div class="show-management-meta"><span>판매 <b>${sold}/${Number(item.total || 0)}</b></span><span><i class="favorite-icon" aria-hidden="true">♥</i> <b>${Number(item.favorite_count || 0)}</b></span><span class="pill state-${state.key}">${state.label}</span></div><div class="row-actions"><button class="tiny" data-show-stats="${item.id}" type="button">현황</button><a class="tiny secondary" href="/performance-form.html?id=${item.id}">수정</a><a class="tiny secondary" href="/api/admin/performances/${item.id}/reservations.csv" download="performance-${item.id}-reservations.csv">엑셀</a><button class="tiny danger" data-show-delete="${item.id}" type="button">삭제</button></div></article>`;
+    return `<article class="show-management-card"><a class="show-management-main" href="/concert-detail.html?id=${item.id}"><img src="${esc(posterUrl(item.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><span><b>${esc(item.title)}</b><small>${date(item.start_at)} · ${esc(item.venue_name || '')}</small></span></a><div class="show-management-meta"><span>판매 <b>${sold}/${Number(item.total || 0)}</b></span><span><i class="favorite-icon" aria-hidden="true">♥</i> <b>${Number(item.favorite_count || 0)}</b></span><span class="pill state-${state.key}">${state.label}</span></div><div class="row-actions"><button class="tiny" data-show-stats="${item.id}" type="button">현황</button><a class="tiny secondary" href="/performance-form.html?id=${item.id}">수정</a><a class="tiny secondary" href="/api/admin/performances/${item.id}/reservations.csv" download="performance-${item.id}-reservations.csv">엑셀</a><button class="tiny danger" data-show-delete="${item.id}" type="button">삭제</button></div></article>`;
   }).join('')}</div>`;
 }
 
@@ -827,7 +836,7 @@ function openGenreModal(select, afterSave) {
 }
 
 async function openPosterPreview(file) {
-  return cropImageFile(file, 1080, 1440, false);
+  return cropImageFile(file, 520, 694, false);
 }
 
 function openAddressSearch(form) {

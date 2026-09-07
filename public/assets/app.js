@@ -257,7 +257,6 @@ async function home() {
     list.sort(sorters[sort]);
     render(list);
   };
-  hero.innerHTML = '<div class="loading">배너를 불러오는 중…</div>';
   grid.innerHTML = '<div class="loading">공연을 불러오는 중…</div>';
   $('#filters').addEventListener('submit', event => { event.preventDefault(); runSearch(); });
   $$('[data-sort-key]').forEach(button => button.addEventListener('click', () => {
@@ -270,9 +269,6 @@ async function home() {
     runSearch();
   }));
   $('[name=bookable]').addEventListener('change', runSearch);
-  api(bannerApiUrl()).then(renderHero).catch(error => {
-    hero.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
-  });
   api('/api/performances').then(data => {
     performances = data;
     markPopular(performances);

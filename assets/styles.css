@@ -605,3 +605,4 @@ body[data-page="login"] #header{display:none}
 .reservation-answer{display:block;margin-top:5px;color:var(--muted);line-height:1.5}
 .reservation-answer+.reservation-answer{margin-top:8px}
 @media(max-width:620px){.question-row-head{grid-template-columns:1fr}.question-required{min-height:0}.question-option-row{grid-template-columns:1fr}.map-icon-button{width:38px!important}.venue-row{flex-direction:row;align-items:center}}
+.discover{padding-top:44px}

@@ -3,7 +3,7 @@
   "buildCommand": null,
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
-    { "source": "/api/:path*", "destination": "/api/server" },
+    { "source": "/api/:path*", "destination": "/api/server?path=:path*" },
     { "source": "/tickets/verify/:token", "destination": "/ticket-verify.html" }
   ],
   "functions": {

@@ -30,7 +30,7 @@ const EN = {
   '요청을 처리하지 못했습니다.': 'We could not process your request.',
   'Live Pocket V3.0 — 작은 공연을 가까이': 'Live Pocket V3.0 — Intimate shows, closer to you', '공연 상세 — Live Pocket V3.0': 'Show details — Live Pocket V3.0', '예매 정보 확인 - Live Pocket V3.0': 'Booking verification — Live Pocket V3.0',
   '라이트 모드로 전환': 'Switch to light mode', '다크 모드로 전환': 'Switch to dark mode', '라이트 모드': 'Light mode', '다크 모드': 'Dark mode', '메뉴': 'Menu',
-  '공연 찾기': 'Discover shows', '마이페이지': 'My page', '로그인': 'Log in', '로그아웃': 'Log out', '작은 무대의 큰 순간을 가장 가까이에서.': 'Get closer to the biggest moments on small stages.',
+  '마이페이지': 'My page', '로그인': 'Log in', '로그아웃': 'Log out', '작은 무대의 큰 순간을 가장 가까이에서.': 'Get closer to the biggest moments on small stages.',
   '매진': 'Sold out', '예매 마감': 'Booking closed', '예매 전': 'Coming soon', '예매 중': 'Booking open', '마감 임박': 'Almost sold out',
   '노출 중인 배너가 없습니다.': 'There are no active banners.', '이전 배너': 'Previous banner', '다음 배너': 'Next banner', '조건에 맞는 공연이 없습니다.': 'No shows match your search.', '공연을 불러오는 중…': 'Loading shows…',
   '모두': 'All', '공연장': 'Venue', '아티스트': 'Artist', '호스트': 'Host', '공연명': 'Show title', '검색 범위': 'Search scope', '공연 검색': 'Search shows', '찾고 싶은 공연을 검색하세요': 'Search for a show', '검색': 'Search',
@@ -154,7 +154,6 @@ function shell() {
     header.innerHTML = `<div class="nav-wrap">
       <a class="brand" href="/"><b>LP</b><strong>Live Pocket</strong><em>${APP_VERSION}</em></a>
       <nav>
-        <a href="/#performances">공연 찾기</a>
         <a href="/mypage.html">마이페이지</a>
         <a id="auth-link" href="#login">로그인</a>
       </nav>

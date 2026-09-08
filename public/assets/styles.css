@@ -583,6 +583,7 @@ body[data-page="login"] #header{display:none}
 .hero-stage{width:min(100%,1920px)!important;max-width:1920px!important;height:100%;flex:0 1 1920px}
 
 /* Live Pocket V3.0 */
+.sort-row{display:none!important}
 .show-info p{margin-bottom:0}
 .show-info>div:last-child{margin-top:12px;padding:12px 0 2px;border-top:1px solid var(--line)}
 .ticket-summary{gap:0}

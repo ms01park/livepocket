@@ -17,7 +17,7 @@
         <input type="hidden" name="sort" value="date-asc">
         <button class="btn dark" type="submit">검색</button>
       </form>
-      <div class="sort-row" aria-label="공연 정렬"><button type="button" data-sort-key="popular" data-direction="desc">인기순 <i>↓</i></button><button class="active" type="button" data-sort-key="date" data-direction="asc">날짜순 <i>↑</i></button><button type="button" data-sort-key="price" data-direction="asc">가격순 <i>↑</i></button><button type="button" data-sort-key="registered" data-direction="desc">등록순 <i>↓</i></button><label class="bookable-filter"><input type="checkbox" name="bookable" form="filters"> 예매 가능</label></div>
+      <div class="sort-row" aria-label="공연 정렬"><button type="button" data-sort-key="popular" data-direction="desc" disabled>인기순 <i>↓</i></button><button class="active" type="button" data-sort-key="date" data-direction="asc" disabled>날짜순 <i>↑</i></button><button type="button" data-sort-key="price" data-direction="asc" disabled>가격순 <i>↑</i></button><button type="button" data-sort-key="registered" data-direction="desc" disabled>등록순 <i>↓</i></button><label class="bookable-filter"><input type="checkbox" name="bookable" form="filters" disabled> 예매 가능</label></div>
       <div id="performance-grid" class="performance-grid" aria-live="polite"></div>
     </section>
   </main>

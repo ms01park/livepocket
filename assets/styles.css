@@ -72,6 +72,7 @@ body[data-page="login"] #header{display:none}
 
 /* Live Pocket historical requested updates */
 .show-badge,.poster-wrap>.genre-badge{border:1px solid rgba(255,255,255,.88);box-shadow:0 5px 16px rgba(0,0,0,.16)}
+.sort-row button:disabled,.bookable-filter input:disabled{opacity:.42;cursor:not-allowed}
 .show-badge.soldout,.pill.state-soldout{background:#df321f;color:#fff}
 .show-badge.before,.pill.state-before{background:#4776cf;color:#fff}
 .show-badge.closed,.pill.state-closed{background:#71717a;color:#fff}

@@ -609,3 +609,11 @@ body[data-page="login"] #header{display:none}
 .reservation-answer+.reservation-answer{margin-top:8px}
 @media(max-width:620px){.question-row-head{grid-template-columns:1fr}.question-required{min-height:0}.question-option-row{grid-template-columns:1fr}.map-icon-button{width:38px!important}.venue-row{flex-direction:row;align-items:center}}
 .discover{padding-top:44px}
+
+/* Ko / En language control */
+.language-switch{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:var(--paper);color:var(--muted);font:700 12px 'DM Sans',sans-serif}
+.language-switch button{border:0;background:transparent;color:inherit;padding:2px;line-height:1}
+.language-switch button[aria-pressed="true"]{color:var(--ink)}
+.language-switch span{opacity:.45}
+@media(max-width:767px){.language-switch{margin-left:auto}.nav-wrap>.theme-toggle{margin-left:0}}
+@media(max-width:380px){.language-switch{padding:4px 6px;gap:3px}.brand em{display:none}}

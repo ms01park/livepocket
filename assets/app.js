@@ -9,11 +9,11 @@ const api = async (url, options = {}) => {
   if (!response.ok) throw new Error(data.error || '요청을 처리하지 못했습니다.');
   return data;
 };
-const won = value => `${Number(value || 0).toLocaleString('ko-KR')}원`;
-const date = value => new Intl.DateTimeFormat('ko-KR', {
+const won = value => CURRENT_LANGUAGE === 'en' ? `KRW ${Number(value || 0).toLocaleString('en-US')}` : `${Number(value || 0).toLocaleString('ko-KR')}원`;
+const date = value => new Intl.DateTimeFormat(CURRENT_LANGUAGE === 'en' ? 'en-US' : 'ko-KR', {
   month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit',
 }).format(new Date(value));
-const fullDate = value => new Intl.DateTimeFormat('ko-KR', {
+const fullDate = value => new Intl.DateTimeFormat(CURRENT_LANGUAGE === 'en' ? 'en-US' : 'ko-KR', {
   year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit',
 }).format(new Date(value));
 const qs = name => new URLSearchParams(location.search).get(name);
@@ -24,6 +24,92 @@ const APP_VERSION = 'V3.0';
 let me = null;
 let meLoad = null;
 const BANNER_CACHE_KEY = 'lp_banner_cache_bust';
+const LANGUAGE_KEY = 'lp-language';
+const CURRENT_LANGUAGE = localStorage.getItem(LANGUAGE_KEY) === 'en' ? 'en' : 'ko';
+const EN = {
+  '요청을 처리하지 못했습니다.': 'We could not process your request.',
+  'Live Pocket V3.0 — 작은 공연을 가까이': 'Live Pocket V3.0 — Intimate shows, closer to you', '공연 상세 — Live Pocket V3.0': 'Show details — Live Pocket V3.0', '예매 정보 확인 - Live Pocket V3.0': 'Booking verification — Live Pocket V3.0',
+  '라이트 모드로 전환': 'Switch to light mode', '다크 모드로 전환': 'Switch to dark mode', '라이트 모드': 'Light mode', '다크 모드': 'Dark mode', '메뉴': 'Menu',
+  '공연 찾기': 'Discover shows', '마이페이지': 'My page', '로그인': 'Log in', '로그아웃': 'Log out', '작은 무대의 큰 순간을 가장 가까이에서.': 'Get closer to the biggest moments on small stages.',
+  '매진': 'Sold out', '예매 마감': 'Booking closed', '예매 전': 'Coming soon', '예매 중': 'Booking open', '마감 임박': 'Almost sold out',
+  '노출 중인 배너가 없습니다.': 'There are no active banners.', '이전 배너': 'Previous banner', '다음 배너': 'Next banner', '조건에 맞는 공연이 없습니다.': 'No shows match your search.', '공연을 불러오는 중…': 'Loading shows…',
+  '모두': 'All', '공연장': 'Venue', '아티스트': 'Artist', '호스트': 'Host', '공연명': 'Show title', '검색 범위': 'Search scope', '공연 검색': 'Search shows', '찾고 싶은 공연을 검색하세요': 'Search for a show', '검색': 'Search',
+  '공연 정렬': 'Sort shows', '인기순': 'Popular', '날짜순': 'Date', '가격순': 'Price', '등록순': 'Recently added', '예매 가능': 'Available',
+  '로그인 또는 간편가입': 'Log in or sign up', '현재 화면에서 계정 인증을 완료할 수 있습니다.': 'Continue without leaving this page.', '회원 인증': 'Member access', '간편가입': 'Quick sign-up', '이메일': 'Email', '비밀번호': 'Password', '닉네임': 'Nickname',
+  '8자 이상, 영문과 숫자를 함께 입력해 주세요.': 'Use at least 8 characters with letters and numbers.', '비속어와 코드 형태의 문자열은 사용할 수 없습니다.': 'Profanity and code-like strings are not allowed.',
+  '닫기': 'Close', '홈': 'Home', '공연 상세': 'Show details', '공연 정보를 불러오는 중…': 'Loading show details…', '캘린더에 추가': 'Add to calendar', '카카오맵에서 공연장 보기': 'View venue on Kakao Map', '카카오맵에서 보기': 'View on Kakao Map',
+  '공연 일시': 'Date & time', '공연 장소': 'Venue', '티켓': 'Tickets', '찜하기': 'Add to favorites', '예매하기': 'Book now', '공연 소개': 'About the show', '예매 및 입장 안내': 'Booking & entry information',
+  '결제는 무통장 입금으로 진행됩니다. 입금 확인 후 QR 티켓이 발급되며, 공연 당일 예매 상세 화면의 QR로 입장할 수 있습니다.': 'Payment is made by bank transfer. Your QR ticket is issued after payment is confirmed and can be used for entry from your booking details.',
+  '추천 공연': 'You may also like', '추천할 공연을 준비 중입니다.': 'More recommendations are coming soon.', '예매하기 — Live Pocket V3.0': 'Book tickets — Live Pocket V3.0', '티켓과 예매자 정보를 확인해 주세요.': 'Review your tickets and booking details.', '불러오는 중…': 'Loading…',
+  '로그인 또는 간편가입 후 예매를 계속할 수 있습니다.': 'Log in or sign up to continue booking.', '필수': 'Required', '선택해 주세요': 'Please select', '티켓 종류': 'Ticket type', '수량': 'Quantity', '예매자 이름': 'Booker name', '핸드폰번호': 'Mobile number', '추가 질문': 'Additional questions',
+  '결제 방식': 'Payment method', '무통장 입금': 'Bank transfer', '신청 후 24시간 이내 입금': 'Pay within 24 hours of booking', '예매 및 취소 규정을 확인했습니다.': 'I have reviewed the booking and cancellation policy.', '예매 신청하기': 'Submit booking', '결제 금액': 'Total',
+  '예매 완료 — Live Pocket V3.0': 'Booking complete — Live Pocket V3.0', '예매 신청이 완료됐어요.': 'Your booking request is complete.', '마이페이지 예매 상세에서 현장 입장용 QR 티켓을 확인할 수 있습니다.': 'Your entry QR ticket will appear in the booking details on My page.',
+  '입금 계좌': 'Bank account', '신한은행 110-555-202606': 'Shinhan Bank 110-555-202606', '예금주 주식회사 라이브포켓': 'Account holder: Live Pocket Co., Ltd.', '마이페이지로 가기': 'Go to My page', '공연 더 보기': 'Browse more shows', '예매 번호': 'Booking number', '입금 기한': 'Payment deadline', '입장 QR': 'Entry QR', '입장 시 보여주세요': 'Show this at entry',
+  '마이페이지에서 예매 내역을 확인해 주세요.': 'Check your bookings on My page.', '마이페이지 — Live Pocket V3.0': 'My page — Live Pocket V3.0', '내 정보를 불러오는 중…': 'Loading your account…', '로그인 또는 간편가입 후 마이페이지를 이용할 수 있습니다.': 'Log in or sign up to use My page.', '님,': ',', '반가워요.': 'welcome back.',
+  '예매 내역': 'Bookings', '찜한 공연': 'Favorites', '공연 관리': 'Manage shows', '최근 예매': 'Recent bookings', '예매 확인': 'View booking', '아직 예매한 공연이 없습니다.': 'You have no bookings yet.', '찜한 공연이 없습니다.': 'You have no favorite shows yet.',
+  '내 공연 관리': 'My shows', '가입한 계정으로 공연을 등록하고 운영할 수 있습니다.': 'Create and manage shows with this account.', '+ 공연 등록': '+ Add show', '입금 대기': 'Awaiting payment', '예매 완료': 'Booked', '취소': 'Cancelled', '운영 중': 'Active', '숨김': 'Hidden',
+  '예매 정보 확인 QR코드': 'Booking verification QR code', '공연장 입구에서 이 QR코드를 제시해 주세요.': 'Show this QR code at the venue entrance.', '스태프가 예매 정보를 확인한 후 입장을 안내합니다.': 'Staff will verify your booking and guide you inside.', 'QR 발행 대기 중': 'QR pending', '입금 확인 후 이곳에 예매 정보 확인 QR이 표시됩니다.': 'Your booking QR will appear here after payment is confirmed.',
+  '취소된 예매입니다.': 'This booking has been cancelled.', '입장 전 확인이 필요합니다.': 'Please check before entry.', '입장 확인 가능': 'Ready for entry verification', '유효하지 않은 예매 정보입니다.': 'This booking information is invalid.', 'QR코드를 다시 확인해 주세요.': 'Please check the QR code and try again.',
+  '예매 정보 확인': 'Booking verification', '티켓 수량': 'Ticket quantity', '예매자명': 'Booker', '연락처': 'Contact', '예매번호': 'Booking number', '예매 상태': 'Booking status', '이 화면은 예매 정보 확인 전용입니다. 페이지를 열어도 입장 처리나 상태 변경은 일어나지 않습니다.': 'This page is for booking verification only. Opening it does not check in the guest or change the booking status.',
+  '공연 정보를 찾을 수 없습니다.': 'Show information could not be found.', '공연이 삭제되었거나 조회할 수 없습니다.': 'The show was removed or is unavailable.', '문제가 계속되면 공연장 스태프에게 예매번호 또는 예매자 정보를 알려 주세요.': 'If the issue continues, give venue staff the booking number or booker details.',
+  '등록된 공연이 없습니다.': 'No shows have been added.', '판매': 'Sold', '현황': 'Stats', '수정': 'Edit', '엑셀': 'Excel', '삭제': 'Delete', '예매율 · 찜 추이': 'Booking rate · Favorite trend', 'x축 날짜 · y축 수치': 'X-axis: date · Y-axis: value', '예매율 (%)': 'Booking rate (%)', '찜 횟수': 'Favorites', '예매율과 찜 횟수 추이 그래프': 'Booking rate and favorites trend chart',
+  '플랫폼 대시보드': 'Platform dashboard', '회원 관리': 'Members', '전체 공연': 'All shows', '전체 예매': 'All bookings', '배너 설정': 'Banner settings', '공연 대시보드': 'Show dashboard', '예매자 관리': 'Bookings', '관리자 정보': 'Admin profile', '총 관리자': 'Super admin', '공연 관리자': 'Show manager', '플랫폼 운영': 'Platform operations',
+  '데이터가 없습니다.': 'No data available.', '운영 공연': 'Active shows', '전체 찜': 'Total favorites', '예매 금액': 'Booking revenue', '담당 공연을 등록·수정하고 판매 현황을 확인합니다.': 'Create and edit your shows, and review sales.', '입금 확인과 예매 상태를 처리합니다.': 'Confirm payments and manage booking status.',
+  '이름': 'Name', '권한': 'Role', '공연 등록 회원': 'Show creator', '일반 회원': 'Member', '전체 회원': 'All members', '공연 등록 경험과 계정 상태를 확인합니다.': 'Review account status and show creation history.', '구분': 'Type', '상태': 'Status', '관리': 'Actions',
+  '전체 공연 관리': 'Manage all shows', '플랫폼에 등록된 공연을 관리합니다.': 'Manage every show on the platform.', '전체 예매 관리': 'Manage all bookings', '홈 롤링 배너의 내용과 노출 순서를 관리합니다.': 'Manage home banner content and display order.', '+ 신규 배너': '+ New banner', '배너 순서 이동': 'Reorder banner', '순서': 'Order', '노출 중': 'Visible',
+  '공연 / 예매자': 'Show / Booker', '추가 답변': 'Additional answers', '금액': 'Amount', '처리': 'Action', '입금 확인': 'Confirm payment', '결제 완료': 'Paid',
+  '공연 등록/수정 — Live Pocket V3.0': 'Create/edit show — Live Pocket V3.0', '공연 입력 화면을 불러오는 중…': 'Loading show editor…', '이미지 편집': 'Edit image', '확대/축소': 'Zoom', '적용': 'Apply', '아티스트 수정': 'Edit artist', '아티스트 추가': 'Add artist', '아티스트명': 'Artist name', '아티스트 이미지': 'Artist image',
+  '이미지를 선택하지 않으면 기존 이미지를 유지합니다.': 'Leave this empty to keep the current image.', '기존 아티스트를 선택하면 등록된 이미지를 재사용합니다.': 'Select an existing artist to reuse their image.', '수정 저장': 'Save changes', '추가': 'Add', '아티스트 추가 버튼으로 출연진을 등록해 주세요.': 'Use Add artist to enter the lineup.', '장르 추가': 'Add genre', '장르명': 'Genre name',
+  '일반 티켓': 'General admission', '티켓명': 'Ticket name', '선택지 입력': 'Enter an option', '질문': 'Question', '예: 뒤풀이에 참석하시나요?': 'e.g. Will you join the after-party?', '질문 삭제': 'Delete question', '선택지 추가': 'Add option', '공연 수정': 'Edit show', '공연 등록': 'Create show',
+  '공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.': 'Manage show details, tickets, and booking questions in one place.', '포스터 이미지': 'Poster image', '이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.': 'After choosing an image, adjust its scale and position to fit the poster.',
+  '주소': 'Address', '예매 시작': 'Booking opens', '티켓 설정': 'Ticket settings', '티켓 추가': 'Add ticket', '예매 추가 질문': 'Additional booking questions', '예매자가 선택할 질문과 선택지를 필요한 만큼 추가할 수 있습니다.': 'Add as many booking questions and options as needed.', '질문 추가': 'Add question', '결제 안내 문구': 'Payment instructions', '저장': 'Save',
+  '로그인 또는 간편가입 후 공연을 등록할 수 있습니다.': 'Log in or sign up to create a show.', '아직 예매가 없습니다.': 'There are no bookings yet.', '처리 완료': 'Complete', '예매 현황': 'Booking stats', '판매 티켓': 'Tickets sold', '총 결제 금액': 'Total booking value', '입금 확인 금액': 'Confirmed payments', '예매 건수': 'Bookings',
+  '배너 수정': 'Edit banner', '신규 배너': 'New banner', '관리용 제목': 'Internal title', '보조 설명': 'Supporting text', '배너 이미지': 'Banner image', '권장 크기: 1920x600px, 넓은 가로형 이미지': 'Recommended: 1920×600px landscape image', '연결 URL': 'Destination URL', '노출 순서': 'Display order', '노출하기': 'Show banner', '배너 추가': 'Add banner',
+  '회원 수정': 'Edit member', '회원 이름': 'Member name', '새 비밀번호': 'New password', '변경하지 않으려면 비워두세요': 'Leave blank to keep the current password',
+  '로그인 — Live Pocket V3.0': 'Log in — Live Pocket V3.0', '공연의 설렘을': 'Keep the excitement', '계속 이어가세요.': 'of live music going.', '일반 회원은 예매와 공연 등록을 같은 계정으로 이용할 수 있습니다.': 'Use one account to book tickets and create shows.', '이메일로 로그인하기': 'Log in with email', '일반 회원 계정으로 공연 예매와 공연 등록을 이용합니다.': 'Use your member account to book tickets and create shows.', '예매자 정보는 예매 단계에서 입력합니다.': 'Booker details are entered during booking.',
+  '총관리자 로그인 — Live Pocket V3.0': 'Super admin login — Live Pocket V3.0', '접속': 'access', '플랫폼 운영 계정만 이 경로에서 로그인할 수 있습니다.': 'Only platform operations accounts can log in here.', '총관리자 로그인': 'Super admin login', '일반 회원은 기존 로그인 화면을 이용해 주세요.': 'Members should use the standard login page.', '총관리자 이메일': 'Super admin email', '일반 회원 로그인으로 이동': 'Go to member login',
+  '가까운 소규모 공연을 발견하고 예매하는 Live Pocket V3.0': 'Discover and book intimate live shows with Live Pocket V3.0', '작은 무대, 크게 뛰는 밤': 'Small stage, electric night', '지금 가장 가까운 라이브를 만나보세요.': 'Find the live show closest to you.', '이번 주말의 재즈': 'Jazz this weekend', '좋아하는 음악을 공연장에서 듣는 시간.': 'Hear the music you love, live.', 'QR로 빠르게 확인': 'Fast entry with QR', '공연장 입구에서 예매 정보를 빠르게 확인하세요.': 'Verify your booking quickly at the venue entrance.',
+  '인디록': 'Indie rock', '재즈': 'Jazz', '어쿠스틱': 'Acoustic', '힙합': 'Hip-hop', '클래식': 'Classical', '전자음악': 'Electronic', '밤의 사운드 체크': 'Night Soundcheck', '성수 재즈 나이트': 'Seongsu Jazz Night', '망원 어쿠스틱 데이': 'Mangwon Acoustic Day',
+  '작은 공연장에서 가까운 거리로 생생한 사운드를 만나는 인디 라이브입니다.': 'An intimate indie show that puts you close to the stage and every detail of the sound.', '작은 바에서 만나는 따뜻한 콘트라베이스와 피아노의 밤입니다.': 'A warm evening of double bass and piano in an intimate bar.', '싱어송라이터의 목소리에 집중하는 60분 소규모 공연입니다.': 'An intimate 60-minute show centered on the voice of a singer-songwriter.',
+  '이 공연을 목록에서 삭제할까요? 기존 예매 내역은 보존됩니다.': 'Remove this show from the list? Existing bookings will be kept.', '이 배너를 삭제할까요? 홈 화면에서도 더 이상 노출되지 않습니다.': 'Delete this banner? It will no longer appear on the home page.',
+  '수정할 장르명을 입력해 주세요.': 'Enter the updated genre name.', '이 장르를 목록에서 삭제할까요?': 'Delete this genre from the list?', '해당 회원을 삭제 상태로 변경할까요?': 'Mark this member as deleted?',
+};
+
+function t(value) {
+  if (CURRENT_LANGUAGE !== 'en') return String(value ?? '');
+  const source = String(value ?? '');
+  if (EN[source]) return EN[source];
+  return source.replace(/^(\d+)번 배너$/, 'Banner $1').replace(/^(\d+)매$/, '$1 tickets').replace(/^(\d+)건$/, '$1 bookings').replace(/^(\d+)회 등록$/, 'Used in $1 shows').replace(/^예매번호\s+/, 'Booking no. ').replace(/^(.+)님,$/, '$1,').replace(/\s외\s(\d+)명$/, ' + $1 more').replace(/ 포스터$/, ' poster');
+}
+
+function translateNode(root) {
+  if (CURRENT_LANGUAGE !== 'en' || !root) return;
+  if (root.nodeType === Node.TEXT_NODE) {
+    const raw = root.nodeValue;
+    const trimmed = raw.trim();
+    if (trimmed) {
+      const translated = t(trimmed);
+      if (translated !== trimmed) root.nodeValue = raw.replace(trimmed, translated);
+    }
+    return;
+  }
+  if (root.nodeType !== Node.ELEMENT_NODE || root.matches('script, style')) return;
+  ['aria-label', 'title', 'placeholder'].forEach(attribute => {
+    if (!root.hasAttribute(attribute)) return;
+    const source = root.getAttribute(attribute);
+    const translated = t(source);
+    if (translated !== source) root.setAttribute(attribute, translated);
+  });
+  [...root.childNodes].forEach(translateNode);
+}
+
+function initI18n() {
+  document.documentElement.lang = CURRENT_LANGUAGE;
+  document.title = t(document.title);
+  document.querySelectorAll('meta[name="description"]').forEach(meta => meta.setAttribute('content', t(meta.getAttribute('content'))));
+  translateNode(document.body);
+  new MutationObserver(mutations => mutations.forEach(mutation => mutation.addedNodes.forEach(translateNode))).observe(document.body, { childList: true, subtree: true });
+}
 
 function posterUrl(value, size = 'detail') {
   const source = String(value || '');
@@ -72,6 +158,7 @@ function shell() {
         <a href="/mypage.html">마이페이지</a>
         <a id="auth-link" href="#login">로그인</a>
       </nav>
+      <div class="language-switch" role="group" aria-label="Language"><button type="button" data-language="ko" aria-pressed="${CURRENT_LANGUAGE === 'ko'}">Ko</button><span aria-hidden="true">/</span><button type="button" data-language="en" aria-pressed="${CURRENT_LANGUAGE === 'en'}">En</button></div>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span aria-hidden="true"></span></button>
       <button class="menu" type="button" aria-label="메뉴">☰</button>
     </div>`;
@@ -80,6 +167,12 @@ function shell() {
   const footer = $('#footer');
   if (footer) footer.innerHTML = `<div class="footer-wrap"><a class="brand light" href="/"><b>LP</b><strong>Live Pocket</strong><em>${APP_VERSION}</em></a><p>작은 무대의 큰 순간을 가장 가까이에서.</p><small>© 2026 Live Pocket ${APP_VERSION}. All rights reserved.</small></div>`;
   $('.menu')?.addEventListener('click', () => $('#header nav').classList.toggle('open'));
+  $$('[data-language]').forEach(button => button.addEventListener('click', () => {
+    const language = button.dataset.language;
+    if (language === CURRENT_LANGUAGE) return;
+    localStorage.setItem(LANGUAGE_KEY, language);
+    location.reload();
+  }));
   $('#theme-toggle')?.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
   loadMe().then(user => {
     const auth = $('#auth-link');
@@ -91,7 +184,7 @@ function shell() {
       });
       return;
     }
-    auth.textContent = '로그아웃';
+    auth.textContent = t('로그아웃');
     auth.href = '#logout';
     auth.addEventListener('click', async event => {
       event.preventDefault();
@@ -520,7 +613,7 @@ async function verifyTicket() {
   try {
     const ticket = await api(`/api/tickets/verify/${encodeURIComponent(token)}`);
     const status = verifyStatusInfo(ticket.bookingStatus);
-    document.title = `${ticket.performanceTitle} 예매 정보 확인 — Live Pocket ${APP_VERSION}`;
+    document.title = CURRENT_LANGUAGE === 'en' ? `${ticket.performanceTitle} booking verification — Live Pocket ${APP_VERSION}` : `${ticket.performanceTitle} 예매 정보 확인 — Live Pocket ${APP_VERSION}`;
     root.innerHTML = `<section class="verify-card ${status.className}">
       <div class="verify-top"><span class="kicker">TICKET VERIFY</span><strong>${esc(status.label)}</strong><small>${esc(status.help)}</small></div>
       <h1>${esc(ticket.performanceTitle)}</h1>
@@ -933,7 +1026,7 @@ async function showFormPage() {
 function bindShowActions() {
   $$('[data-show-stats]').forEach(button => button.addEventListener('click', async () => openStatsModal(button.dataset.showStats)));
   $$('[data-show-delete]').forEach(button => button.addEventListener('click', async () => {
-    if (!confirm('이 공연을 목록에서 삭제할까요? 기존 예매 내역은 보존됩니다.')) return;
+    if (!confirm(t('이 공연을 목록에서 삭제할까요? 기존 예매 내역은 보존됩니다.'))) return;
     await api(`/api/performances/${button.dataset.showDelete}`, { method: 'DELETE' });
     location.reload();
   }));
@@ -987,7 +1080,7 @@ function bindBannerActions() {
   $('[data-banner-create]')?.addEventListener('click', () => openBannerForm());
   $$('[data-banner-edit]').forEach(button => button.addEventListener('click', async () => openBannerForm(await api(`/api/super-admin/banners/${button.dataset.bannerEdit}`))));
   $$('[data-banner-delete]').forEach(button => button.addEventListener('click', async () => {
-    if (!confirm('이 배너를 삭제할까요? 홈 화면에서도 더 이상 노출되지 않습니다.')) return;
+    if (!confirm(t('이 배너를 삭제할까요? 홈 화면에서도 더 이상 노출되지 않습니다.'))) return;
     await api(`/api/super-admin/banners/${button.dataset.bannerDelete}`, { method: 'DELETE' });
     location.assign('/mypage.html#settings');
   }));
@@ -1019,13 +1112,13 @@ function bindBannerActions() {
     openGenreModal(select, () => location.assign('/mypage.html#settings'));
   });
   $$('[data-genre-edit]').forEach(button => button.addEventListener('click', async () => {
-    const name = prompt('수정할 장르명을 입력해 주세요.', button.parentElement.firstChild.textContent.trim());
+    const name = prompt(t('수정할 장르명을 입력해 주세요.'), button.parentElement.firstChild.textContent.trim());
     if (!name) return;
     await api(`/api/super-admin/genres/${button.dataset.genreEdit}`, { method: 'PATCH', body: JSON.stringify({ name, is_active: 1 }) });
     location.reload();
   }));
   $$('[data-genre-delete]').forEach(button => button.addEventListener('click', async () => {
-    if (!confirm('이 장르를 목록에서 삭제할까요?')) return;
+    if (!confirm(t('이 장르를 목록에서 삭제할까요?'))) return;
     await api(`/api/super-admin/genres/${button.dataset.genreDelete}`, { method: 'DELETE' });
     location.reload();
   }));
@@ -1047,7 +1140,7 @@ function bindBannerActions() {
     });
   }));
   $$('[data-user-delete]').forEach(button => button.addEventListener('click', async () => {
-    if (!confirm('해당 회원을 삭제 상태로 변경할까요?')) return;
+    if (!confirm(t('해당 회원을 삭제 상태로 변경할까요?'))) return;
     await api(`/api/super-admin/users/${button.dataset.userDelete}`, { method: 'DELETE' });
     location.assign('/mypage.html#members');
   }));
@@ -1123,6 +1216,7 @@ async function login() {
   });
 }
 
+initI18n();
 shell();
 ({ home, detail, booking, complete, mypage, login, showFormPage, verifyTicket }[document.body.dataset.page] || (() => {}))().catch(error => {
   console.error(error);

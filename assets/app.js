@@ -220,7 +220,7 @@ function compactArtistLabel(value, maxVisible = 2) {
   return `${names.slice(0, maxVisible).join(', ')} 외 ${names.length - maxVisible}명`;
 }
 
-const card = performance => `<article class="show-card"><a href="/concert-detail.html?id=${performance.id}">
+const card = performance => `<article class="show-card"><a href="/performances/${performance.id}">
   <div class="poster-wrap"><img src="${esc(posterUrl(performance.poster_url, 'card'))}" alt="${esc(performance.title)} 포스터" loading="lazy" decoding="async"><div class="show-badges">${availabilityBadges(performance)}</div></div>
   <div class="show-info"><small class="show-date">${date(performance.start_at)}</small><h3>${esc(performance.title)}</h3><p title="${esc(performance.artists)}">${esc(compactArtistLabel(performance.artists))}</p>
   <div><span>${esc(performance.venue_name)}</span><strong>${won(performance.price)}~</strong></div></div>
@@ -449,7 +449,7 @@ function showLoginModal(next = location.href) {
 }
 
 async function detail() {
-  const id = qs('id') || 1;
+  const id = qs('id') || location.pathname.match(/^\/performances\/(\d+)\/?$/)?.[1] || 1;
   const [performance, user] = await Promise.all([api(`/api/performances/${id}`), loadMe()]);
   const links = calendarLinks(performance);
   const maps = mapLinks(performance);
@@ -563,7 +563,7 @@ async function userPage(user) {
   markPopular(favorites);
   $('#mypage').innerHTML = `<section class="my-head"><div><span class="kicker">MY LIVE POCKET</span><h1>${esc(user.name)}님,<br>반가워요.</h1><p>${esc(user.email)}</p></div><button class="btn outline logout" type="button">로그아웃</button></section>
     <div class="tabs"><button class="active" data-tab="booking">예매 내역 <b>${reservations.length}</b></button><button data-tab="favorite">찜한 공연 <b>${favorites.length}</b></button><button data-tab="manage">공연 관리 <b>${managed.length}</b></button></div>
-    <section data-panel="booking" class="tab-panel active"><h2>최근 예매</h2><div class="reservation-list">${reservations.length ? reservations.map(reservation => `<article class="reservation"><a class="reservation-show" href="/concert-detail.html?id=${reservation.performance_id}"><img src="${esc(posterUrl(reservation.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><span class="pill">${statusName(reservation.status)}</span><h3>${esc(reservation.title)}</h3><p>${date(reservation.start_at)} · ${esc(reservation.venue_name)}</p><small>예매번호 ${esc(reservation.reservation_no)}</small></div></a><button class="reservation-confirm" type="button" data-reservation="${reservation.id}">예매 확인</button></article>`).join('') : '<div class="empty">아직 예매한 공연이 없습니다.</div>'}</div></section>
+    <section data-panel="booking" class="tab-panel active"><h2>최근 예매</h2><div class="reservation-list">${reservations.length ? reservations.map(reservation => `<article class="reservation"><a class="reservation-show" href="/performances/${reservation.performance_id}"><img src="${esc(posterUrl(reservation.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><span class="pill">${statusName(reservation.status)}</span><h3>${esc(reservation.title)}</h3><p>${date(reservation.start_at)} · ${esc(reservation.venue_name)}</p><small>예매번호 ${esc(reservation.reservation_no)}</small></div></a><button class="reservation-confirm" type="button" data-reservation="${reservation.id}">예매 확인</button></article>`).join('') : '<div class="empty">아직 예매한 공연이 없습니다.</div>'}</div></section>
     <section data-panel="favorite" class="tab-panel"><h2>찜한 공연</h2><div class="performance-grid">${favorites.length ? favorites.map(card).join('') : '<div class="empty">찜한 공연이 없습니다.</div>'}</div></section>
     <section data-panel="manage" class="tab-panel"><div class="panel-title"><div><h2>내 공연 관리</h2><p>가입한 계정으로 공연을 등록하고 운영할 수 있습니다.</p></div><a class="btn primary" href="/performance-form.html">+ 공연 등록</a></div>${performanceTable(managed)}</section>`;
   bindTabs();
@@ -643,7 +643,7 @@ function performanceTable(performances) {
   return `<div class="show-management-list">${performances.map(item => {
     const state = bookingState(item);
     const sold = Number(item.total || 0) - Number(item.remaining || 0);
-    return `<article class="show-management-card"><a class="show-management-main" href="/concert-detail.html?id=${item.id}"><img src="${esc(posterUrl(item.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><span><b>${esc(item.title)}</b><small>${date(item.start_at)} · ${esc(item.venue_name || '')}</small></span></a><div class="show-management-meta"><span>판매 <b>${sold}/${Number(item.total || 0)}</b></span><span><i class="favorite-icon" aria-hidden="true">♥</i> <b>${Number(item.favorite_count || 0)}</b></span><span class="pill state-${state.key}">${state.label}</span></div><div class="row-actions"><button class="tiny" data-show-stats="${item.id}" type="button">현황</button><a class="tiny secondary" href="/performance-form.html?id=${item.id}">수정</a><a class="tiny secondary" href="/api/admin/performances/${item.id}/reservations.csv" download="performance-${item.id}-reservations.csv">엑셀</a><button class="tiny danger" data-show-delete="${item.id}" type="button">삭제</button></div></article>`;
+    return `<article class="show-management-card"><a class="show-management-main" href="/performances/${item.id}"><img src="${esc(posterUrl(item.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><span><b>${esc(item.title)}</b><small>${date(item.start_at)} · ${esc(item.venue_name || '')}</small></span></a><div class="show-management-meta"><span>판매 <b>${sold}/${Number(item.total || 0)}</b></span><span><i class="favorite-icon" aria-hidden="true">♥</i> <b>${Number(item.favorite_count || 0)}</b></span><span class="pill state-${state.key}">${state.label}</span></div><div class="row-actions"><button class="tiny" data-show-stats="${item.id}" type="button">현황</button><a class="tiny secondary" href="/performance-form.html?id=${item.id}">수정</a><a class="tiny secondary" href="/api/admin/performances/${item.id}/reservations.csv" download="performance-${item.id}-reservations.csv">엑셀</a><button class="tiny danger" data-show-delete="${item.id}" type="button">삭제</button></div></article>`;
   }).join('')}</div>`;
 }
 

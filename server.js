@@ -132,8 +132,8 @@ async function initDb() {
     }
   }
   if (!await get('SELECT id FROM banners LIMIT 1')) {
-    await run('INSERT INTO banners(title,subtitle,image_url,link_url,sort_order) VALUES(?,?,?,?,?)', ['작은 무대, 크게 뛰는 밤','지금 가장 가까운 라이브를 만나보세요.','/assets/banner-1.svg','/concert-detail.html?id=1',1]);
-    await run('INSERT INTO banners(title,subtitle,image_url,link_url,sort_order) VALUES(?,?,?,?,?)', ['이번 주말의 재즈','좋아하는 음악을 공연장에서 듣는 시간.','/assets/banner-2.svg','/concert-detail.html?id=2',2]);
+    await run('INSERT INTO banners(title,subtitle,image_url,link_url,sort_order) VALUES(?,?,?,?,?)', ['작은 무대, 크게 뛰는 밤','지금 가장 가까운 라이브를 만나보세요.','/assets/banner-1.svg','/performances/1',1]);
+    await run('INSERT INTO banners(title,subtitle,image_url,link_url,sort_order) VALUES(?,?,?,?,?)', ['이번 주말의 재즈','좋아하는 음악을 공연장에서 듣는 시간.','/assets/banner-2.svg','/performances/2',2]);
     await run('INSERT INTO banners(title,subtitle,image_url,link_url,sort_order) VALUES(?,?,?,?,?)', ['QR로 빠르게 확인','공연장 입구에서 예매 정보를 빠르게 확인하세요.','/assets/banner-3.svg','/mypage.html',3]);
   }
   if (!await get("SELECT id FROM taxonomy WHERE type='genre' LIMIT 1")) {
@@ -159,6 +159,7 @@ async function initFeatureDb() {
 
 const json = (res, status, data, headers = {}) => { res.writeHead(status, {'Content-Type':'application/json; charset=utf-8', ...headers}); res.end(JSON.stringify(data)); };
 const publicCache = seconds => ({'Cache-Control':`public, s-maxage=${seconds}, stale-while-revalidate=600`});
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const cookieMap = req => Object.fromEntries((req.headers.cookie||'').split(';').filter(Boolean).map(x=>x.trim().split('=').map(decodeURIComponent)));
 async function currentUser(req) { const sid = cookieMap(req).lp_session; return sid ? get(`SELECT u.id,u.email,u.name,u.phone,u.role,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at>CURRENT_TIMESTAMP`, [sid]) : null; }
 async function sessionCookie(userId) { const id = crypto.randomBytes(32).toString('hex'), expires = new Date(Date.now() + 7 * 864e5); await run('INSERT INTO sessions(id,user_id,expires_at) VALUES(?,?,?)', [id, userId, expires.toISOString()]); return `lp_session=${id}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${BASE.startsWith('https:')?'; Secure':''}`; }
@@ -252,6 +253,61 @@ function publicImageUrl(value, pathPrefix, id) {
 }
 function publicBanner(row) { return {...row,image_url:publicImageUrl(row.image_url,'/api/banner-image',row.id),link_url:normalizeLinkUrl(row.link_url)}; }
 function publicPerformance(row) { return {...row,poster_url:publicImageUrl(row.poster_url,'/api/performance-poster',row.id)}; }
+function requestOrigin(req) {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  const host = forwardedHost || req.headers.host;
+  if (host) return `${forwardedProto || (BASE.startsWith('https:') ? 'https' : 'http')}://${host}`;
+  return BASE.replace(/\/$/, '');
+}
+function absolutePublicUrl(value, origin) {
+  try { return new URL(String(value || ''), `${origin}/`).href; } catch { return `${origin}/`; }
+}
+function concertShareDescription(performance) {
+  const summary = String(performance.description || '').replace(/\s+/g, ' ').trim();
+  const details = [performance.artists, performance.venue_name].map(value => String(value || '').trim()).filter(Boolean).join(' · ');
+  return (summary || details || '가까운 소규모 공연을 Live Pocket에서 만나보세요.').slice(0, 200);
+}
+function concertShareMeta(performance, origin) {
+  if (!performance) return '';
+  const title = `${performance.title} — Live Pocket`;
+  const description = concertShareDescription(performance);
+  const pageUrl = `${origin}/performances/${encodeURIComponent(performance.id)}`;
+  const posterPath = publicImageUrl(performance.poster_url, '/api/performance-poster', performance.id);
+  const imageUrl = absolutePublicUrl(posterPath, origin);
+  return [
+    `<meta name="description" content="${escapeHtml(description)}">`,
+    '<meta property="og:type" content="website">',
+    '<meta property="og:site_name" content="Live Pocket">',
+    `<meta property="og:title" content="${escapeHtml(title)}">`,
+    `<meta property="og:description" content="${escapeHtml(description)}">`,
+    `<meta property="og:image" content="${escapeHtml(imageUrl)}">`,
+    '<meta property="og:image:type" content="image/jpeg">',
+    '<meta property="og:image:width" content="520">',
+    '<meta property="og:image:height" content="694">',
+    `<meta property="og:url" content="${escapeHtml(pageUrl)}">`,
+    '<meta name="twitter:card" content="summary_large_image">',
+    `<meta name="twitter:title" content="${escapeHtml(title)}">`,
+    `<meta name="twitter:description" content="${escapeHtml(description)}">`,
+    `<meta name="twitter:image" content="${escapeHtml(imageUrl)}">`,
+    `<link rel="canonical" href="${escapeHtml(pageUrl)}">`,
+  ].join('');
+}
+async function sendConcertDetailPage(req, res, url) {
+  const id = Number(url.searchParams.get('id'));
+  const performance = Number.isInteger(id) && id > 0
+    ? await get("SELECT id,title,artists,description,poster_url,venue_name FROM performances WHERE id=? AND status!='HIDDEN'", [id])
+    : null;
+  const file = path.join(ROOT, 'concert-detail.html');
+  let html = fs.readFileSync(file, 'utf8');
+  if (performance) {
+    html = html
+      .replace('<title>공연 상세 — Live Pocket V3.0</title>', `<title>${escapeHtml(performance.title)} — Live Pocket</title>`)
+      .replace('<!-- SHARE_META -->', concertShareMeta(performance, requestOrigin(req)));
+  }
+  res.writeHead(200, {'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});
+  return res.end(html);
+}
 async function compressDataImageUrl(source, width, height, quality = 82) {
   const data = dataImageParts(source);
   if (!data || !/^image\/(png|jpe?g|webp)$/i.test(data.type)) return source;
@@ -269,16 +325,28 @@ async function compactStoredImages() {
 async function sendStoredImage(res, row, column, width, height, quality = 82) {
   const source = String(row?.image_url || '');
   if (!source) { res.writeHead(404); return res.end('Not found'); }
-  if (!/^data:/i.test(source)) { res.writeHead(302, {Location: normalizeLinkUrl(source)}); return res.end(); }
   const data = dataImageParts(source);
-  if (!data) { res.writeHead(404); return res.end('Not found'); }
-  let body = data.body;
-  let type = data.type;
-  if (/^image\/(png|jpe?g|webp)$/i.test(type)) {
+  let body;
+  let type;
+  if (data) {
+    body = data.body;
+    type = data.type;
+  } else if (source.startsWith('/')) {
+    const sourcePath = source.split(/[?#]/)[0];
+    const localFile = path.resolve(ROOT, `.${sourcePath}`);
+    if (!localFile.startsWith(`${ROOT}${path.sep}`) || !fs.existsSync(localFile) || fs.statSync(localFile).isDirectory()) {
+      res.writeHead(404); return res.end('Not found');
+    }
+    body = fs.readFileSync(localFile);
+    type = MIME[path.extname(localFile).toLowerCase()] || 'application/octet-stream';
+  } else {
+    res.writeHead(302, {Location: normalizeLinkUrl(source)}); return res.end();
+  }
+  if (/^image\/(png|jpe?g|webp|svg\+xml)$/i.test(type)) {
     body = await sharp(body).resize(width, height, {fit:'cover'}).flatten({background:'#fff'}).jpeg({quality, mozjpeg:true}).toBuffer();
     type = 'image/jpeg';
   }
-  res.writeHead(200, {'Content-Type':type,'Cache-Control':'public, max-age=31536000, s-maxage=31536000, immutable'});
+  res.writeHead(200, {'Content-Type':type,'Content-Length':body.length,'Cache-Control':'public, max-age=31536000, s-maxage=31536000, immutable'});
   return res.end(body);
 }
 async function sendBannerImage(res, row) { return sendStoredImage(res, row, 'image_url', 1920, 600, 82); }
@@ -320,6 +388,7 @@ async function metricSeries(user) {
 
 async function api(req,res,url){
   const parts=url.pathname.split('/').filter(Boolean);
+  if(req.method==='GET'&&url.pathname==='/api/concert-detail')return await sendConcertDetailPage(req,res,url);
   if(req.method==='GET'&&parts[1]==='banner-image'&&parts[2])return await sendBannerImage(res,await get('SELECT image_url FROM banners WHERE id=? AND is_active=1',[parts[2]]));
   if(req.method==='GET'&&parts[1]==='performance-poster'&&parts[2])return await sendPerformancePoster(res,await get("SELECT poster_url FROM performances WHERE id=? AND status!='HIDDEN'",[parts[2]]),url.searchParams.get('size'));
   if(req.method==='GET'&&url.pathname==='/api/banners')return json(res,200,(await all('SELECT * FROM banners WHERE is_active=1 ORDER BY sort_order')).map(publicBanner),publicCache(60));
@@ -385,8 +454,8 @@ async function api(req,res,url){
   return json(res,404,{error:'API 경로를 찾을 수 없습니다.'});
 }
 
-const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg'};
-const server=http.createServer(async(req,res)=>{try{const url=new URL(req.url,BASE);if(url.pathname.startsWith('/api/'))return await api(req,res,url);if(url.pathname==='/admin'||url.pathname==='/admin/'){res.writeHead(302,{Location:'/login.html'});return res.end();}let file=url.pathname==='/'?'/index.html':url.pathname;if(/^\/tickets\/verify\/[^/]+$/.test(url.pathname))file='/ticket-verify.html';file=path.normalize(file).replace(/^(\.\.[/\\])+/, '');const full=path.join(ROOT,file);if(!full.startsWith(ROOT)||!fs.existsSync(full)||fs.statSync(full).isDirectory()){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream','Cache-Control':path.extname(full)==='.html'?'no-cache':'public, max-age=3600'});fs.createReadStream(full).pipe(res);}catch(e){console.error(e);if(!res.headersSent)json(res,500,{error:'서버 오류가 발생했습니다.'});}});
+const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
+const server=http.createServer(async(req,res)=>{try{const url=new URL(req.url,BASE);if(url.pathname.startsWith('/api/'))return await api(req,res,url);const performancePath=url.pathname.match(/^\/performances\/(\d+)\/?$/);if(req.method==='GET'&&performancePath){url.searchParams.set('id',performancePath[1]);return await sendConcertDetailPage(req,res,url);}if(req.method==='GET'&&url.pathname==='/concert-detail.html'&&url.searchParams.get('id')){res.writeHead(307,{Location:`/performances/${encodeURIComponent(url.searchParams.get('id'))}`});return res.end();}if(req.method==='GET'&&url.pathname==='/concert-detail.html')return await sendConcertDetailPage(req,res,url);if(url.pathname==='/admin'||url.pathname==='/admin/'){res.writeHead(302,{Location:'/login.html'});return res.end();}let file=url.pathname==='/'?'/index.html':url.pathname;if(/^\/tickets\/verify\/[^/]+$/.test(url.pathname))file='/ticket-verify.html';file=path.normalize(file).replace(/^(\.\.[/\\])+/, '');const full=path.join(ROOT,file);if(!full.startsWith(ROOT)||!fs.existsSync(full)||fs.statSync(full).isDirectory()){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream','Cache-Control':path.extname(full)==='.html'?'no-cache':'public, max-age=3600'});fs.createReadStream(full).pipe(res);}catch(e){console.error(e);if(!res.headersSent)json(res,500,{error:'서버 오류가 발생했습니다.'});}});
 
 const ready = SHOULD_INIT_DB ? initDb() : initFeatureDb();
 

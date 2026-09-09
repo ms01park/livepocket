@@ -1,8 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": null,
+  "redirects": [
+    {
+      "source": "/concert-detail.html",
+      "has": [{ "type": "query", "key": "id", "value": "(?<id>\\d+)" }],
+      "destination": "/performances/:id",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
+    { "source": "/performances/:id", "destination": "/api/server?path=concert-detail&id=:id" },
     { "source": "/tickets/verify/:token", "destination": "/ticket-verify.html" }
   ],
   "functions": {

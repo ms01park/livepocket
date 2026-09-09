@@ -11,6 +11,10 @@ module.exports = (req, res) => {
   if (forwardedPath) {
     const forwardedUrl = new URL(`/api/${String(forwardedPath).replace(/^\/+/, '')}`, 'http://localhost');
     for (const [key, value] of url.searchParams) if (key !== 'path') forwardedUrl.searchParams.append(key, value);
+    for (const [key, value] of Object.entries(req.query || {})) {
+      if (key === 'path' || forwardedUrl.searchParams.has(key)) continue;
+      for (const item of Array.isArray(value) ? value : [value]) if (item != null) forwardedUrl.searchParams.append(key, String(item));
+    }
     req.url = `${forwardedUrl.pathname}${forwardedUrl.search}`;
   }
   return handleRequest(req, res);

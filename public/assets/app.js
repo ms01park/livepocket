@@ -20,7 +20,7 @@ const qs = name => new URLSearchParams(location.search).get(name);
 const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 })[char]);
-const APP_VERSION = 'V3.0';
+const APP_VERSION = 'V3.1';
 let me = null;
 let meLoad = null;
 const BANNER_CACHE_KEY = 'lp_banner_cache_bust';
@@ -506,9 +506,21 @@ async function booking() {
     return;
   }
   const ticket = performance.tickets.find(item => Number(item.remaining_quantity) > 0) || performance.tickets[0];
-  const questionFields = (performance.questions || []).map(question => `<label class="booking-question">${esc(t(question.question_text))}${question.is_required ? ' <i>필수</i>' : ''}<select data-question-id="${question.id}" ${question.is_required ? 'required' : ''}><option value="">선택해 주세요</option>${question.options.map(option => `<option value="${option.id}">${esc(t(option.option_text))}</option>`).join('')}</select></label>`).join('');
-  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(posterUrl(performance.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(t(item.name))} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small></div><label class="agree"><input type="checkbox" required> 예매 및 취소 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
+  const questionFields = (performance.questions || []).map(question => {
+    const label = `<span class="booking-question-title">${esc(t(question.question_text))}${question.is_required ? ' <i>필수</i>' : ''}</span>`;
+    if (question.question_type === 'short_text') return `<label class="booking-question" data-question-id="${question.id}" data-question-type="short_text">${label}<input data-question-answer maxlength="200" ${question.is_required ? 'required' : ''}></label>`;
+    if (question.question_type === 'long_text') return `<label class="booking-question" data-question-id="${question.id}" data-question-type="long_text">${label}<textarea data-question-answer maxlength="3000" ${question.is_required ? 'required' : ''}></textarea></label>`;
+    if (question.question_type === 'checkbox_single' || question.question_type === 'checkbox_multiple') return `<div class="booking-question" data-question-id="${question.id}" data-question-type="${question.question_type}">${label}<div class="booking-option-list">${question.options.map(option => `<label class="booking-option"><span><input type="checkbox" value="${option.id}"> ${esc(t(option.option_text))}</span>${option.description_text ? `<small>${esc(option.description_text)}</small>` : ''}</label>`).join('')}</div></div>`;
+    return `<label class="booking-question" data-question-id="${question.id}" data-question-type="select">${label}<select data-question-answer ${question.is_required ? 'required' : ''}><option value="">선택해 주세요</option>${question.options.map(option => `<option value="${option.id}" data-description="${esc(option.description_text || '')}">${esc(t(option.option_text))}</option>`).join('')}</select><small class="selected-option-description"></small></label>`;
+  }).join('');
+  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(posterUrl(performance.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(t(item.name))} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select><small>1회 최대 ${Number(performance.max_tickets_per_order || 4)}매</small></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small><hr><span>환불 규정</span><small>${esc(performance.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</small></div><label class="agree"><input type="checkbox" required> 결제 안내 및 환불 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
   const form = $('#booking-form');
+  $$('.booking-question[data-question-type="checkbox_single"] input[type="checkbox"]', form).forEach(input => input.addEventListener('change', event => {
+    if (event.currentTarget.checked) $$('input[type="checkbox"]', event.currentTarget.closest('.booking-question')).forEach(other => { if (other !== event.currentTarget) other.checked = false; });
+  }));
+  $$('.booking-question[data-question-type="select"] select', form).forEach(select => select.addEventListener('change', event => {
+    event.currentTarget.closest('.booking-question').querySelector('.selected-option-description').textContent = event.currentTarget.selectedOptions[0]?.dataset.description || '';
+  }));
   form.phone.addEventListener('input', event => {
     const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
     event.target.value = digits.length > 7 ? `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}` : digits.length > 3 ? `${digits.slice(0, 3)}-${digits.slice(3)}` : digits;
@@ -516,7 +528,7 @@ async function booking() {
   const update = () => {
     const option = form.ticketTypeId.selectedOptions[0];
     const current = Number(form.quantity.value) || 1;
-    const limit = Math.min(4, Number(option.dataset.remaining || 0));
+    const limit = Math.min(Number(performance.max_tickets_per_order || 4), Number(option.dataset.remaining || 0));
     form.quantity.innerHTML = Array.from({ length: limit }, (_, index) => index + 1).map(value => `<option ${value === Math.min(current, limit) ? 'selected' : ''}>${value}</option>`).join('');
     $('#total').textContent = won(Number(option.dataset.price) * Number(form.quantity.value || 0));
   };
@@ -526,7 +538,13 @@ async function booking() {
     event.preventDefault();
     try {
       const payload = Object.fromEntries(new FormData(form));
-      payload.answers = $$('.booking-question select', form).filter(select => select.value).map(select => ({ questionId: Number(select.dataset.questionId), optionId: Number(select.value) }));
+      payload.answers = $$('.booking-question', form).map(field => {
+        const questionId = Number(field.dataset.questionId), type = field.dataset.questionType;
+        if (type === 'short_text' || type === 'long_text') return { questionId, answerText: $('[data-question-answer]', field).value };
+        if (type === 'checkbox_multiple') return { questionId, optionIds: $$('input[type="checkbox"]:checked', field).map(input => Number(input.value)) };
+        if (type === 'checkbox_single') return { questionId, optionId: Number($('input[type="checkbox"]:checked', field)?.value || 0) || null };
+        return { questionId, optionId: Number($('[data-question-answer]', field).value || 0) || null };
+      });
       const result = await api('/api/reservations', { method: 'POST', body: JSON.stringify(payload) });
       sessionStorage.setItem('lastReservation', JSON.stringify(result));
       location.href = `/booking-complete.html?id=${result.id}`;
@@ -943,28 +961,48 @@ function openAddressSearch(form) {
   }).open();
 }
 
+const questionTypeOptions = [
+  ['select', '셀렉트박스 (단일 선택)'],
+  ['short_text', '단답형'],
+  ['long_text', '장문형'],
+  ['checkbox_single', '체크박스 (단일 선택)'],
+  ['checkbox_multiple', '체크박스 (다중 선택)'],
+];
+const questionOptionRowHtml = option => `<div class="question-option-row"><label>선택지<input name="question_option" value="${esc(option?.option_text || option || '')}" placeholder="선택지 입력"></label><label>선택지 설명<textarea name="question_option_description" placeholder="선택지에 대한 설명을 입력하세요. 줄바꿈도 그대로 표시됩니다.">${esc(option?.description_text || '')}</textarea></label><button class="tiny danger" type="button" data-option-remove>삭제</button></div>`;
+const questionRowHtml = (question = {}) => {
+  const type = question.question_type || 'select';
+  const options = question.options?.length ? question.options : ['', ''];
+  return `<div class="question-row" data-question-row><div class="question-row-head"><label>질문<input name="question_text" value="${esc(question.question_text || '')}" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label>답변 형식<select name="question_type">${questionTypeOptions.map(([value, label]) => `<option value="${value}" ${value === type ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label class="question-required"><input type="checkbox" name="question_required" ${question.is_required === false ? '' : 'checked'}> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><div class="question-options">${options.map(questionOptionRowHtml).join('')}</div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>`;
+};
+
 function showFormHtml(item = {}) {
   const editing = Boolean(item.id);
   const localDate = value => value ? new Date(value).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16) : '';
   const tickets = item.tickets?.length ? item.tickets : [{ name: '일반 티켓', price: item.price || 0, total_quantity: item.total || 50 }];
   const questions = Array.isArray(item.questions) ? item.questions : [];
   const ticketRow = ticket => `<div class="ticket-row"><label>티켓명<input name="ticket_name" value="${esc(ticket.name || '일반 티켓')}" placeholder="일반 티켓"></label><label>금액<input type="number" name="ticket_price" min="0" value="${ticket.price || 0}" placeholder="금액"></label><label>수량<input type="number" name="ticket_quantity" min="1" value="${ticket.total_quantity || ticket.total || 50}" placeholder="수량"></label><button class="tiny danger" type="button" data-ticket-remove>삭제</button></div>`;
-  const optionRow = option => `<div class="question-option-row"><input name="question_option" value="${esc(option.option_text || option || '')}" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div>`;
-  const questionRow = question => `<div class="question-row"><div class="question-row-head"><label>질문<input name="question_text" value="${esc(question.question_text || '')}" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label class="question-required"><input type="checkbox" name="question_required" ${question.is_required === false ? '' : 'checked'}> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><div class="question-options">${(question.options?.length ? question.options : ['', '']).map(optionRow).join('')}</div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>`;
-  return `<section class="page-head"><span class="kicker">${editing ? 'EDIT PERFORMANCE' : 'NEW PERFORMANCE'}</span><h1>${editing ? '공연 수정' : '공연 등록'}</h1><p>공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.</p></section><section class="show-form-page"><form id="show-form" class="stack"><label>공연명<input name="title" required value="${esc(item.title || '')}"></label><input type="hidden" name="poster_url" value="${esc(item.poster_url || '/assets/poster-1.svg')}"><input type="hidden" name="artist_avatar_url" value="${esc(item.artist_avatar_url || '/assets/artist-avatar.svg')}"><input type="hidden" name="artists" required value="${esc(item.artists || '')}"><label>아티스트<div class="artist-list" id="artist-list"></div><button class="tiny secondary" type="button" data-artist-add>아티스트 추가</button></label><label>공연 소개<textarea name="description" required>${esc(item.description || '')}</textarea></label><label class="file-field">포스터 이미지<input type="file" name="poster_file" accept="image/*"><small>이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.</small></label><div class="two"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div><div class="two"><label>공연 일시<input type="datetime-local" name="start_at" required value="${localDate(item.start_at)}"></label><label>예매 시작<input type="datetime-local" name="booking_start_at" required value="${localDate(item.booking_start_at || new Date().toISOString())}"></label></div><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div><div class="question-editor"><div><b>예매 추가 질문</b><small>예매자가 선택할 질문과 선택지를 필요한 만큼 추가할 수 있습니다.</small></div><div id="question-rows">${questions.map(questionRow).join('')}</div><button class="tiny secondary" type="button" data-question-add>질문 추가</button></div><label>결제 안내 문구<input name="deposit_notice" required value="${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}"></label><div id="show-form-error" class="alert error hidden"></div><div class="button-row"><a class="btn outline" href="/mypage.html">취소</a><button class="btn primary grow" type="submit">${editing ? '수정 저장' : '공연 등록'}</button></div></form></section>`;
+  return `<section class="page-head"><span class="kicker">${editing ? 'EDIT PERFORMANCE' : 'NEW PERFORMANCE'}</span><h1>${editing ? '공연 수정' : '공연 등록'}</h1><p>공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.</p></section><section class="show-form-page"><form id="show-form" class="stack"><label>공연명<input name="title" required value="${esc(item.title || '')}"></label><input type="hidden" name="poster_url" value="${esc(item.poster_url || '/assets/poster-1.svg')}"><input type="hidden" name="artist_avatar_url" value="${esc(item.artist_avatar_url || '/assets/artist-avatar.svg')}"><input type="hidden" name="artists" required value="${esc(item.artists || '')}"><label>아티스트<div class="artist-list" id="artist-list"></div><button class="tiny secondary" type="button" data-artist-add>아티스트 추가</button></label><label>공연 소개<textarea name="description" required>${esc(item.description || '')}</textarea></label><label class="file-field">포스터 이미지<input type="file" name="poster_file" accept="image/*"><small>이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.</small></label><div class="two"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div><div class="two"><label>공연 일시<input type="datetime-local" name="start_at" required value="${localDate(item.start_at)}"></label><label>예매 시작<input type="datetime-local" name="booking_start_at" required value="${localDate(item.booking_start_at || new Date().toISOString())}"></label></div><div class="two"><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><label>1회 최대 구매 수량<input type="number" name="max_tickets_per_order" min="1" max="100" required value="${Number(item.max_tickets_per_order || 4)}"><small>예매자 한 명이 한 번에 구매할 수 있는 최대 티켓 수입니다.</small></label></div><div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div><div class="question-editor"><div><b>예매 추가 질문</b><small>답변 형식과 선택지, 선택지별 설명을 설정할 수 있습니다.</small></div><div id="question-rows">${questions.map(questionRowHtml).join('')}</div><button class="tiny secondary" type="button" data-question-add>질문 추가</button></div><label>결제 안내 문구<textarea name="deposit_notice" required>${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}</textarea></label><label>환불 규정<textarea name="refund_policy" required>${esc(item.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</textarea></label><div id="show-form-error" class="alert error hidden"></div><div class="button-row"><a class="btn outline" href="/mypage.html">취소</a><button class="btn primary grow" type="submit">${editing ? '수정 저장' : '공연 등록'}</button></div></form></section>`;
 }
 
 async function bindShowForm(item = {}) {
   const editing = Boolean(item.id);
   const form = $('#show-form');
+  const syncQuestionRow = row => {
+    const usesOptions = !row.querySelector('[name=question_type]').value.includes('text');
+    row.classList.toggle('text-question', !usesOptions);
+    $$('[name=question_option]', row).forEach(input => { input.required = usesOptions; input.disabled = !usesOptions; });
+    $$('[name=question_option_description]', row).forEach(input => { input.disabled = !usesOptions; });
+    $('[data-option-add]', row).disabled = !usesOptions;
+  };
   renderArtistList(form);
-  autoGrowTextarea(form.description);
-  form.description.addEventListener('input', event => autoGrowTextarea(event.currentTarget));
+  $$('textarea', form).forEach(textarea => autoGrowTextarea(textarea));
+  form.addEventListener('input', event => { if (event.target.matches('textarea')) autoGrowTextarea(event.target); });
+  $$('[data-question-row]', form).forEach(syncQuestionRow);
   $('[data-artist-add]').addEventListener('click', () => openArtistAddModal(form));
   $('[data-address-search]').addEventListener('click', () => openAddressSearch(form));
   form.poster_file.addEventListener('change', async event => { if (event.currentTarget.files[0]) form.poster_url.value = await openPosterPreview(event.currentTarget.files[0]); });
   $('[data-ticket-add]').addEventListener('click', () => $('#ticket-rows').insertAdjacentHTML('beforeend', '<div class="ticket-row"><label>티켓명<input name="ticket_name" value="일반 티켓" placeholder="일반 티켓"></label><label>금액<input type="number" name="ticket_price" min="0" value="0" placeholder="금액"></label><label>수량<input type="number" name="ticket_quantity" min="1" value="50" placeholder="수량"></label><button class="tiny danger" type="button" data-ticket-remove>삭제</button></div>'));
-  $('[data-question-add]').addEventListener('click', () => $('#question-rows').insertAdjacentHTML('beforeend', '<div class="question-row"><div class="question-row-head"><label>질문<input name="question_text" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label class="question-required"><input type="checkbox" name="question_required" checked> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><div class="question-options"><div class="question-option-row"><input name="question_option" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div><div class="question-option-row"><input name="question_option" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div></div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>'));
+  $('[data-question-add]').addEventListener('click', () => { $('#question-rows').insertAdjacentHTML('beforeend', questionRowHtml()); syncQuestionRow($('#question-rows').lastElementChild); });
   $('#artist-list').addEventListener('click', event => {
     const editButton = event.target.closest('[data-artist-edit]');
     const deleteButton = event.target.closest('[data-artist-delete]');
@@ -980,8 +1018,9 @@ async function bindShowForm(item = {}) {
     if (event.target.matches('[data-ticket-remove]')) event.target.closest('.ticket-row').remove();
     if (event.target.matches('[data-question-remove]')) event.target.closest('.question-row').remove();
     if (event.target.matches('[data-option-remove]')) event.target.closest('.question-option-row').remove();
-    if (event.target.matches('[data-option-add]')) event.target.closest('.question-row').querySelector('.question-options').insertAdjacentHTML('beforeend', '<div class="question-option-row"><input name="question_option" placeholder="선택지 입력" required><button class="tiny danger" type="button" data-option-remove>삭제</button></div>');
+    if (event.target.matches('[data-option-add]')) event.target.closest('.question-row').querySelector('.question-options').insertAdjacentHTML('beforeend', questionOptionRowHtml(''));
   });
+  $('#show-form').addEventListener('change', event => { if (event.target.matches('[name=question_type]')) syncQuestionRow(event.target.closest('.question-row')); });
   $('#show-form').addEventListener('submit', async event => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(event.currentTarget));
@@ -995,10 +1034,11 @@ async function bindShowForm(item = {}) {
     }));
     payload.questions = $$('.question-row', event.currentTarget).map(row => ({
       question_text: $('[name=question_text]', row).value,
+      question_type: $('[name=question_type]', row).value,
       is_required: $('[name=question_required]', row).checked,
-      options: $$('[name=question_option]', row).map(input => input.value),
+      options: $$('[name=question_option]', row).map((input, index) => ({ option_text: input.value, description_text: $$('[name=question_option_description]', row)[index]?.value || '' })),
     }));
-    delete payload.poster_file; delete payload.ticket_name; delete payload.ticket_price; delete payload.ticket_quantity; delete payload.question_text; delete payload.question_required; delete payload.question_option;
+    delete payload.poster_file; delete payload.ticket_name; delete payload.ticket_price; delete payload.ticket_quantity; delete payload.question_text; delete payload.question_type; delete payload.question_required; delete payload.question_option; delete payload.question_option_description;
     try {
       await api(editing ? `/api/performances/${item.id}` : '/api/performances', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
       location.href = '/mypage.html';

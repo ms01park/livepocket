@@ -11,7 +11,7 @@
   ],
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
-    { "source": "/performances/:id", "destination": "/api/concert-detail?id=:id" },
+    { "source": "/performances/:id", "destination": "/api/concert-detail/:id" },
     { "source": "/tickets/verify/:token", "destination": "/ticket-verify.html" }
   ],
   "functions": {

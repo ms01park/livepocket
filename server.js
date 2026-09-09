@@ -388,6 +388,7 @@ async function metricSeries(user) {
 
 async function api(req,res,url){
   const parts=url.pathname.split('/').filter(Boolean);
+  if(req.method==='GET'&&parts[1]==='concert-detail'&&parts[2]){url.searchParams.set('id',parts[2]);return await sendConcertDetailPage(req,res,url);}
   if(req.method==='GET'&&url.pathname==='/api/concert-detail')return await sendConcertDetailPage(req,res,url);
   if(req.method==='GET'&&parts[1]==='banner-image'&&parts[2])return await sendBannerImage(res,await get('SELECT image_url FROM banners WHERE id=? AND is_active=1',[parts[2]]));
   if(req.method==='GET'&&parts[1]==='performance-poster'&&parts[2])return await sendPerformancePoster(res,await get("SELECT poster_url FROM performances WHERE id=? AND status!='HIDDEN'",[parts[2]]),url.searchParams.get('size'));

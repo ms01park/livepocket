@@ -20,7 +20,7 @@ const qs = name => new URLSearchParams(location.search).get(name);
 const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
 })[char]);
-const APP_VERSION = 'V3.2';
+const APP_VERSION = 'V3.2.1';
 let me = null;
 let meLoad = null;
 const BANNER_CACHE_KEY = 'lp_banner_cache_bust';
@@ -988,7 +988,8 @@ function showFormHtml(item = {}) {
       <label>아티스트<div class="artist-list" id="artist-list"></div><button class="tiny secondary" type="button" data-artist-add>아티스트 추가</button></label>
       <label>공연 소개<textarea name="description" required>${esc(item.description || '')}</textarea></label>
       <label class="file-field">포스터 이미지<input type="file" name="poster_file" accept="image/*"><small>이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.</small></label>
-      <div class="two venue-form-row"><div class="venue-editor"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>공연장 설명 (선택)<textarea name="venue_description" placeholder="공연장 위치, 층수, 입장 방법 등을 입력하세요.">${esc(item.venue_description || '')}</textarea></label></div><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div>
+      <div class="two venue-form-row"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div>
+      <label class="venue-description-field">공연장 설명 <small>(선택)</small><textarea name="venue_description" placeholder="공연장 위치, 층수, 입장 방법 등을 입력하세요.">${esc(item.venue_description || '')}</textarea></label>
       <div class="two"><label>공연 일시<input type="datetime-local" name="start_at" required value="${localDate(item.start_at)}"></label><label>예매 시작<input type="datetime-local" name="booking_start_at" required value="${localDate(item.booking_start_at || new Date().toISOString())}"></label></div>
       <div class="two"><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><label>1회 최대 구매 수량<input type="number" name="max_tickets_per_order" min="1" max="100" required value="${Number(item.max_tickets_per_order || 4)}"><small>예매자 한 명이 한 번에 구매할 수 있는 최대 티켓 수입니다.</small></label></div>
       <div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div>

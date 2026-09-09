@@ -614,11 +614,12 @@ body[data-page="login"] #header{display:none}
 .booking-question{display:grid;gap:8px}.booking-question-title{font-weight:700}.booking-question-description{color:var(--muted);font-weight:400;line-height:1.65}.booking-option-list{display:grid;gap:8px}.booking-option{display:grid!important;gap:5px!important;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--white)}.booking-option>span{display:flex;align-items:center;gap:7px}.booking-option input{width:18px;height:18px;min-height:auto}.booking-option small,.selected-option-description{color:var(--muted);font-weight:400;line-height:1.65}.selected-option-description:empty{display:none}
 .question-row-head{grid-template-columns:minmax(0,1.3fr) minmax(190px,.7fr) auto auto}
 .question-option-row{grid-template-columns:minmax(150px,.8fr) minmax(260px,1.5fr) auto;align-items:end}.question-option-row textarea{min-height:76px;resize:vertical}.question-row.text-question .question-options,.question-row.text-question [data-option-add]{display:none}
-.question-description-field textarea{min-height:82px}.venue-form-row{align-items:start}.venue-editor{display:grid;gap:12px}.venue-editor textarea{min-height:88px}.venue-copy{display:grid;gap:4px;min-width:0}.venue-copy small{color:var(--muted);font-size:12px;font-weight:400;line-height:1.55}
+.question-description-field textarea{min-height:82px}.venue-form-row{align-items:end}.venue-description-field textarea{min-height:88px}.venue-description-field>small{display:inline;color:var(--muted);font-weight:400}.venue-copy{display:grid;gap:4px;min-width:0}.venue-copy small{color:var(--muted);font-size:12px;font-weight:400;line-height:1.55}
+.question-option-row{align-items:start}.question-option-row>.tiny{margin-top:26px;min-height:42px}.question-row-head>label{min-width:0}.question-row-head select{width:100%}.question-description-field{margin-top:2px}
 :root[data-theme="dark"] .stack textarea,:root[data-theme="dark"] .booking-option{background:var(--white);color:var(--ink);border-color:var(--line)}
 .reservation-answer{display:block;margin-top:5px;color:var(--muted);line-height:1.5}
 .reservation-answer+.reservation-answer{margin-top:8px}
-@media(max-width:620px){.question-row-head{grid-template-columns:1fr}.question-required{min-height:0}.question-option-row{grid-template-columns:1fr}.map-icon-button{width:38px!important}.venue-row{flex-direction:row;align-items:center}}
+@media(max-width:620px){.question-row-head{grid-template-columns:1fr}.question-required{min-height:0}.question-option-row{grid-template-columns:1fr}.question-option-row>.tiny{margin-top:0}.map-icon-button{width:38px!important}.venue-row{flex-direction:row;align-items:center}}
 .discover{padding-top:44px}
 
 /* Ko / En language control */

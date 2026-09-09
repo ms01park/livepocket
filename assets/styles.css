@@ -608,12 +608,13 @@ body[data-page="login"] #header{display:none}
 .booking-question i{color:var(--violet);font-style:normal;font-size:11px}
 
 /* Configurable booking fields and preserved author formatting */
-.description>p,.notice span,.payment small,.booking-option small,.selected-option-description{white-space:pre-wrap}
+.description>p,.notice span,.payment small,.booking-question-description,.booking-option small,.selected-option-description,.venue-copy small{white-space:pre-wrap}
 .stack textarea{width:100%;min-height:104px;background:var(--white);color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:14px 16px;outline:none;font:inherit;line-height:1.7;resize:vertical}
 .payment{gap:6px}.payment hr{grid-column:1/-1;width:100%;margin:10px 0!important}.payment small{line-height:1.65}
-.booking-question{display:grid;gap:8px}.booking-question-title{font-weight:700}.booking-option-list{display:grid;gap:8px}.booking-option{display:grid!important;gap:5px!important;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--white)}.booking-option>span{display:flex;align-items:center;gap:7px}.booking-option input{width:18px;height:18px;min-height:auto}.booking-option small,.selected-option-description{color:var(--muted);font-weight:400;line-height:1.65}.selected-option-description:empty{display:none}
+.booking-question{display:grid;gap:8px}.booking-question-title{font-weight:700}.booking-question-description{color:var(--muted);font-weight:400;line-height:1.65}.booking-option-list{display:grid;gap:8px}.booking-option{display:grid!important;gap:5px!important;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--white)}.booking-option>span{display:flex;align-items:center;gap:7px}.booking-option input{width:18px;height:18px;min-height:auto}.booking-option small,.selected-option-description{color:var(--muted);font-weight:400;line-height:1.65}.selected-option-description:empty{display:none}
 .question-row-head{grid-template-columns:minmax(0,1.3fr) minmax(190px,.7fr) auto auto}
 .question-option-row{grid-template-columns:minmax(150px,.8fr) minmax(260px,1.5fr) auto;align-items:end}.question-option-row textarea{min-height:76px;resize:vertical}.question-row.text-question .question-options,.question-row.text-question [data-option-add]{display:none}
+.question-description-field textarea{min-height:82px}.venue-form-row{align-items:start}.venue-editor{display:grid;gap:12px}.venue-editor textarea{min-height:88px}.venue-copy{display:grid;gap:4px;min-width:0}.venue-copy small{color:var(--muted);font-size:12px;font-weight:400;line-height:1.55}
 :root[data-theme="dark"] .stack textarea,:root[data-theme="dark"] .booking-option{background:var(--white);color:var(--ink);border-color:var(--line)}
 .reservation-answer{display:block;margin-top:5px;color:var(--muted);line-height:1.5}
 .reservation-answer+.reservation-answer{margin-top:8px}

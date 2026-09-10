@@ -42,7 +42,7 @@ const EN = {
   '결제는 무통장 입금으로 진행됩니다. 입금 확인 후 QR 티켓이 발급되며, 공연 당일 예매 상세 화면의 QR로 입장할 수 있습니다.': 'Payment is made by bank transfer. Your QR ticket is issued after payment is confirmed and can be used for entry from your booking details.',
   '추천 공연': 'You may also like', '추천할 공연을 준비 중입니다.': 'More recommendations are coming soon.', '예매하기 — Live Pocket V3.0': 'Book tickets — Live Pocket V3.0', '티켓과 예매자 정보를 확인해 주세요.': 'Review your tickets and booking details.', '불러오는 중…': 'Loading…',
   '로그인 또는 간편가입 후 예매를 계속할 수 있습니다.': 'Log in or sign up to continue booking.', '필수': 'Required', '선택해 주세요': 'Please select', '티켓 종류': 'Ticket type', '수량': 'Quantity', '예매자 이름': 'Booker name', '핸드폰번호': 'Mobile number', '추가 질문': 'Additional questions',
-  '결제 방식': 'Payment method', '무통장 입금': 'Bank transfer', '신청 후 24시간 이내 입금': 'Pay within 24 hours of booking', '예매 및 취소 규정을 확인했습니다.': 'I have reviewed the booking and cancellation policy.', '예매 신청하기': 'Submit booking', '결제 금액': 'Total',
+  '결제 방식': 'Payment method', '무통장 입금': 'Bank transfer', '신청 후 24시간 이내 입금': 'Pay within 24 hours of booking', '공연 취소 및 환불 규정을 확인해 주세요.': 'Please review the cancellation and refund policy.', '예매 및 취소 규정을 확인했습니다.': 'I have reviewed the booking and cancellation policy.', '결제 안내 및 환불 규정을 확인했습니다.': 'I have reviewed the payment information and refund policy.', '예매 신청하기': 'Submit booking', '결제 금액': 'Total',
   '예매 완료 — Live Pocket V3.0': 'Booking complete — Live Pocket V3.0', '예매 신청이 완료됐어요.': 'Your booking request is complete.', '마이페이지 예매 상세에서 현장 입장용 QR 티켓을 확인할 수 있습니다.': 'Your entry QR ticket will appear in the booking details on My page.',
   '입금 계좌': 'Bank account', '신한은행 110-555-202606': 'Shinhan Bank 110-555-202606', '예금주 주식회사 라이브포켓': 'Account holder: Live Pocket Co., Ltd.', '마이페이지로 가기': 'Go to My page', '공연 더 보기': 'Browse more shows', '예매 번호': 'Booking number', '입금 기한': 'Payment deadline', '입장 QR': 'Entry QR', '입장 시 보여주세요': 'Show this at entry',
   '마이페이지에서 예매 내역을 확인해 주세요.': 'Check your bookings on My page.', '마이페이지 — Live Pocket V3.0': 'My page — Live Pocket V3.0', '내 정보를 불러오는 중…': 'Loading your account…', '로그인 또는 간편가입 후 마이페이지를 이용할 수 있습니다.': 'Log in or sign up to use My page.', '님,': ',', '반가워요.': 'welcome back.',
@@ -81,6 +81,12 @@ function t(value) {
   const source = String(value ?? '');
   if (EN[source]) return EN[source];
   return source.replace(/^(\d+)번 배너$/, 'Banner $1').replace(/^(\d+)매$/, '$1 tickets').replace(/^(\d+)건$/, '$1 bookings').replace(/^(\d+)회 등록$/, 'Used in $1 shows').replace(/^예매번호\s+/, 'Booking no. ').replace(/^(.+)님,$/, '$1,').replace(/\s외\s(\d+)명$/, ' + $1 more').replace(/ 포스터$/, ' poster');
+}
+
+function localized(record, field) {
+  if (!record) return '';
+  const translated = String(record[`${field}_en`] || '').trim();
+  return CURRENT_LANGUAGE === 'en' && translated ? translated : String(record[field] || '');
 }
 
 function translateNode(root) {
@@ -221,9 +227,9 @@ function compactArtistLabel(value, maxVisible = 2) {
 }
 
 const card = performance => `<article class="show-card"><a href="/performances/${performance.id}">
-  <div class="poster-wrap"><img src="${esc(posterUrl(performance.poster_url, 'card'))}" alt="${esc(performance.title)} 포스터" loading="lazy" decoding="async"><div class="show-badges">${availabilityBadges(performance)}</div></div>
-  <div class="show-info"><small class="show-date">${date(performance.start_at)}</small><h3>${esc(performance.title)}</h3><p title="${esc(performance.artists)}">${esc(compactArtistLabel(performance.artists))}</p>
-  <div><span>${esc(performance.venue_name)}</span><strong>${won(performance.price)}~</strong></div></div>
+  <div class="poster-wrap"><img src="${esc(posterUrl(performance.poster_url, 'card'))}" alt="${esc(localized(performance, 'title'))} 포스터" loading="lazy" decoding="async"><div class="show-badges">${availabilityBadges(performance)}</div></div>
+  <div class="show-info"><small class="show-date">${date(performance.start_at)}</small><h3>${esc(localized(performance, 'title'))}</h3><p title="${esc(performance.artists)}">${esc(compactArtistLabel(performance.artists))}</p>
+  <div><span>${esc(localized(performance, 'venue_name'))}</span><strong>${won(performance.price)}~</strong></div></div>
 </a></article>`;
 
 function markPopular(performances) {
@@ -335,11 +341,11 @@ async function home() {
     const sort = String(data.get('sort') || 'date-asc');
     const bookableOnly = data.get('bookable') === 'on';
     const fields = {
-      all: item => `${item.title} ${item.artists} ${item.venue_name} ${item.host_name || ''}`,
-      venue: item => item.venue_name,
+      all: item => `${item.title} ${item.title_en || ''} ${item.artists} ${item.venue_name} ${item.venue_name_en || ''} ${item.host_name || ''}`,
+      venue: item => `${item.venue_name} ${item.venue_name_en || ''}`,
       artist: item => item.artists,
       host: item => item.host_name || '',
-      title: item => item.title,
+      title: item => `${item.title} ${item.title_en || ''}`,
     };
     const canBook = item => item.status === 'OPEN' && Number(item.remaining) > 0 && new Date(item.booking_close_at) > new Date();
     const list = performances.filter(item => (!query || fields[scope](item).toLowerCase().includes(query)) && (!bookableOnly || canBook(item)));
@@ -381,10 +387,14 @@ function calendarLinks(performance) {
   const start = new Date(performance.start_at);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
   const stamp = value => value.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const details = `${performance.title}\n${performance.venue_name}\n${performance.address}`;
+  const title = localized(performance, 'title');
+  const venue = localized(performance, 'venue_name');
+  const address = localized(performance, 'address');
+  const description = localized(performance, 'description');
+  const details = `${title}\n${venue}\n${address}`;
   const google = new URL('https://calendar.google.com/calendar/render');
-  google.search = new URLSearchParams({ action: 'TEMPLATE', text: performance.title, dates: `${stamp(start)}/${stamp(end)}`, details, location: `${performance.venue_name} ${performance.address}` });
-  const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Live Pocket//${APP_VERSION}//KO\nBEGIN:VEVENT\nUID:performance-${performance.id}@livepocket\nDTSTAMP:${stamp(new Date())}\nDTSTART:${stamp(start)}\nDTEND:${stamp(end)}\nSUMMARY:${performance.title}\nLOCATION:${performance.venue_name} ${performance.address}\nDESCRIPTION:${performance.description.replace(/\n/g, ' ')}\nEND:VEVENT\nEND:VCALENDAR`;
+  google.search = new URLSearchParams({ action: 'TEMPLATE', text: title, dates: `${stamp(start)}/${stamp(end)}`, details, location: `${venue} ${address}` });
+  const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Live Pocket//${APP_VERSION}//${CURRENT_LANGUAGE.toUpperCase()}\nBEGIN:VEVENT\nUID:performance-${performance.id}@livepocket\nDTSTAMP:${stamp(new Date())}\nDTSTART:${stamp(start)}\nDTEND:${stamp(end)}\nSUMMARY:${title}\nLOCATION:${venue} ${address}\nDESCRIPTION:${description.replace(/\n/g, ' ')}\nEND:VEVENT\nEND:VCALENDAR`;
   return { google: google.toString(), ics: `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}` };
 }
 
@@ -485,15 +495,21 @@ async function detail() {
   const maps = mapLinks(performance);
   me = user;
   performance.remaining = performance.tickets.reduce((sum, item) => sum + Number(item.remaining_quantity), 0);
+  const displayTitle = localized(performance, 'title');
+  const displayVenue = localized(performance, 'venue_name');
+  const displayVenueDescription = localized(performance, 'venue_description');
+  const displayAddress = localized(performance, 'address');
+  const displayDescription = localized(performance, 'description');
+  const displayVenueMeta = [...new Set([displayAddress, displayVenueDescription].filter(Boolean))].map(value => `<small>${esc(value)}</small>`).join('');
   const ticketSummary = performance.tickets.map(ticket => `<div class="ticket-summary-row"><span>${esc(t(ticket.name))}</span><b>${won(ticket.price)}</b></div>`).join('');
-  document.title = `${performance.title} — Live Pocket ${APP_VERSION}`;
+  document.title = `${displayTitle} — Live Pocket ${APP_VERSION}`;
   $('#detail').innerHTML = `<nav class="crumb"><a href="/">홈</a><span>›</span><span>공연 상세</span></nav>
-    <section class="detail-grid"><div class="detail-poster"><img src="${esc(posterUrl(performance.poster_url, 'detail'))}" alt="${esc(performance.title)} 포스터" decoding="async"></div>
-    <article class="detail-info"><h1>${esc(performance.title)}</h1>
+    <section class="detail-grid"><div class="detail-poster"><img src="${esc(posterUrl(performance.poster_url, 'detail'))}" alt="${esc(displayTitle)} 포스터" decoding="async"></div>
+    <article class="detail-info"><h1>${esc(displayTitle)}</h1>
     <dl><div><dt>공연 일시</dt><dd class="detail-row-content"><span>${date(performance.start_at)}</span><div class="calendar-wrap"><button id="calendar-button" class="map-icon-button calendar-icon-button" type="button" aria-label="캘린더에 추가" title="캘린더에 추가" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1Zm12 9H5v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8ZM6 6a1 1 0 0 0-1 1v2h14V7a1 1 0 0 0-1-1H6Zm6 7a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1v-1a1 1 0 0 1 1-1Z"/></svg></button><div id="calendar-menu" class="calendar-menu hidden" role="menu"><a href="${esc(links.google)}" target="_blank" rel="noopener" role="menuitem">Google · Android</a><a href="${links.ics}" download="${esc(performance.title)}.ics" role="menuitem">Apple · iOS (.ics)</a></div></div></dd></div>
-    <div><dt>공연 장소</dt><dd class="venue-row"><span class="venue-copy"><b>${esc(performance.venue_name)}</b>${performance.venue_description ? `<small>${esc(performance.venue_description)}</small>` : ''}</span><a class="map-icon-button" href="${esc(maps.kakao)}" target="_blank" rel="noopener" aria-label="카카오맵에서 공연장 보기" title="카카오맵에서 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Zm0-8.7A3.3 3.3 0 1 1 12 5.7a3.3 3.3 0 0 1 0 6.6Z"/></svg></a></dd></div><div><dt>아티스트</dt><dd class="artist-credit">${artistCredits(performance)}</dd></div><div><dt>티켓</dt><dd class="ticket-summary">${ticketSummary}</dd></div></dl>
+    <div><dt>공연 장소</dt><dd class="venue-row"><span class="venue-copy"><b>${esc(displayVenue)}</b>${displayVenueMeta}</span><a class="map-icon-button" href="${esc(maps.kakao)}" target="_blank" rel="noopener" aria-label="카카오맵에서 공연장 보기" title="카카오맵에서 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Zm0-8.7A3.3 3.3 0 1 1 12 5.7a3.3 3.3 0 0 1 0 6.6Z"/></svg></a></dd></div><div><dt>아티스트</dt><dd class="artist-credit">${artistCredits(performance)}</dd></div><div><dt>티켓</dt><dd class="ticket-summary">${ticketSummary}</dd></div></dl>
     <div class="button-row"><button id="favorite" class="btn outline" type="button" aria-label="찜하기"><span class="favorite-icon" aria-hidden="true">${performance.is_favorite ? '♥' : '♡'}</span> <b>${performance.favorite_count}</b></button><a id="booking-link" class="btn primary grow" href="/booking.html?id=${performance.id}">예매하기</a></div></article></section>
-    <section class="description"><span class="kicker">ABOUT THE SHOW</span><h2>공연 소개</h2><p>${esc(performance.description)}</p><div class="notice"><b>예매 및 입장 안내</b><span>결제는 무통장 입금으로 진행됩니다. 입금 확인 후 QR 티켓이 발급되며, 공연 당일 예매 상세 화면의 QR로 입장할 수 있습니다.</span></div></section>
+    <section class="description"><span class="kicker">ABOUT THE SHOW</span><h2>공연 소개</h2><p>${esc(displayDescription)}</p><div class="notice"><b>예매 및 입장 안내</b><span>결제는 무통장 입금으로 진행됩니다. 입금 확인 후 QR 티켓이 발급되며, 공연 당일 예매 상세 화면의 QR로 입장할 수 있습니다.</span></div></section>
     <section class="recommendations"><div class="panel-title"><div><span class="kicker">YOU MAY ALSO LIKE</span><h2>추천 공연</h2></div></div><div class="performance-grid">${performance.recommendations.length ? performance.recommendations.map(card).join('') : '<div class="empty">추천할 공연을 준비 중입니다.</div>'}</div></section>`;
   $('#calendar-button').addEventListener('click', event => {
     const hidden = $('#calendar-menu').classList.toggle('hidden');
@@ -537,13 +553,15 @@ async function booking() {
   }
   const ticket = performance.tickets.find(item => Number(item.remaining_quantity) > 0) || performance.tickets[0];
   const questionFields = (performance.questions || []).map(question => {
-    const label = `<span class="booking-question-title">${esc(t(question.question_text))}${question.is_required ? ' <i>필수</i>' : ''}</span>${question.description_text ? `<small class="booking-question-description">${esc(question.description_text)}</small>` : ''}`;
+    const questionText = localized(question, 'question_text');
+    const questionDescription = localized(question, 'description_text');
+    const label = `<span class="booking-question-title">${esc(questionText)}${question.is_required ? ' <i>필수</i>' : ''}</span>${questionDescription ? `<small class="booking-question-description">${esc(questionDescription)}</small>` : ''}`;
     if (question.question_type === 'short_text') return `<label class="booking-question" data-question-id="${question.id}" data-question-type="short_text">${label}<input data-question-answer maxlength="200" ${question.is_required ? 'required' : ''}></label>`;
     if (question.question_type === 'long_text') return `<label class="booking-question" data-question-id="${question.id}" data-question-type="long_text">${label}<textarea data-question-answer maxlength="3000" ${question.is_required ? 'required' : ''}></textarea></label>`;
-    if (question.question_type === 'checkbox_single' || question.question_type === 'checkbox_multiple') return `<div class="booking-question" data-question-id="${question.id}" data-question-type="${question.question_type}">${label}<div class="booking-option-list">${question.options.map(option => `<label class="booking-option"><span><input type="checkbox" value="${option.id}"> ${esc(t(option.option_text))}</span>${option.description_text ? `<small>${esc(option.description_text)}</small>` : ''}</label>`).join('')}</div></div>`;
-    return `<label class="booking-question" data-question-id="${question.id}" data-question-type="select">${label}<select data-question-answer ${question.is_required ? 'required' : ''}><option value="">선택해 주세요</option>${question.options.map(option => `<option value="${option.id}" data-description="${esc(option.description_text || '')}">${esc(t(option.option_text))}</option>`).join('')}</select><small class="selected-option-description"></small></label>`;
+    if (question.question_type === 'checkbox_single' || question.question_type === 'checkbox_multiple') return `<div class="booking-question" data-question-id="${question.id}" data-question-type="${question.question_type}">${label}<div class="booking-option-list">${question.options.map(option => { const description = localized(option, 'description_text'); return `<label class="booking-option"><span><input type="checkbox" value="${option.id}"> ${esc(localized(option, 'option_text'))}</span>${description ? `<small>${esc(description)}</small>` : ''}</label>`; }).join('')}</div></div>`;
+    return `<label class="booking-question" data-question-id="${question.id}" data-question-type="select">${label}<select data-question-answer ${question.is_required ? 'required' : ''}><option value="">선택해 주세요</option>${question.options.map(option => `<option value="${option.id}" data-description="${esc(localized(option, 'description_text'))}">${esc(localized(option, 'option_text'))}</option>`).join('')}</select><small class="selected-option-description"></small></label>`;
   }).join('');
-  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(posterUrl(performance.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><h2>${esc(performance.title)}</h2><p>${date(performance.start_at)} · ${esc(performance.venue_name)}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(t(item.name))} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select><small>1회 최대 ${Number(performance.max_tickets_per_order || 4)}매</small></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(performance.deposit_notice || '신청 후 24시간 이내 입금')}</small><hr><span>환불 규정</span><small>${esc(performance.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</small></div><label class="agree"><input type="checkbox" required> 결제 안내 및 환불 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
+  $('#booking-content').innerHTML = `<section class="booking-form"><form id="booking-form" class="stack"><div class="mini-show"><img src="${esc(posterUrl(performance.poster_url, 'thumb'))}" alt="" loading="lazy" decoding="async"><div><h2>${esc(localized(performance, 'title'))}</h2><p>${date(performance.start_at)} · ${esc(localized(performance, 'venue_name'))}</p></div></div><hr><label>티켓 종류<select name="ticketTypeId">${performance.tickets.map(item => `<option value="${item.id}" data-price="${item.price}" data-remaining="${item.remaining_quantity}" ${item.id === ticket.id ? 'selected' : ''} ${Number(item.remaining_quantity) < 1 ? 'disabled' : ''}>${esc(t(item.name))} · ${won(item.price)}</option>`).join('')}</select></label><label>수량<select name="quantity"></select><small>1회 최대 ${Number(performance.max_tickets_per_order || 4)}매</small></label><div class="two"><label>예매자 이름<input name="name" autocomplete="name" required></label><label>핸드폰번호<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></label></div>${questionFields ? `<fieldset class="booking-questions"><legend>추가 질문</legend>${questionFields}</fieldset>` : ''}<div class="payment"><span>결제 방식</span><b>무통장 입금</b><small>${esc(localized(performance, 'deposit_notice') || '신청 후 24시간 이내 입금')}</small><hr><span>환불 규정</span><small>${esc(localized(performance, 'refund_policy') || '공연 취소 및 환불 규정을 확인해 주세요.')}</small></div><label class="agree"><input type="checkbox" required> 결제 안내 및 환불 규정을 확인했습니다.</label><div id="form-error" class="alert error hidden"></div><button class="btn primary" type="submit">예매 신청하기</button></form></section><aside class="summary"><span>결제 금액</span><strong id="total">${won(ticket.price)}</strong></aside>`;
   const form = $('#booking-form');
   $$('.booking-question[data-question-type="checkbox_single"] input[type="checkbox"]', form).forEach(input => input.addEventListener('change', event => {
     if (event.currentTarget.checked) $$('input[type="checkbox"]', event.currentTarget.closest('.booking-question')).forEach(other => { if (other !== event.currentTarget) other.checked = false; });
@@ -1005,11 +1023,14 @@ const questionTypeOptions = [
   ['checkbox_single', '체크박스 (단일 선택)'],
   ['checkbox_multiple', '체크박스 (다중 선택)'],
 ];
-const questionOptionRowHtml = option => `<div class="question-option-row"><label>선택지<input name="question_option" value="${esc(option?.option_text || option || '')}" placeholder="선택지 입력"></label><label>선택지 설명<textarea name="question_option_description" placeholder="선택지에 대한 설명을 입력하세요. 줄바꿈도 그대로 표시됩니다.">${esc(option?.description_text || '')}</textarea></label><button class="tiny danger" type="button" data-option-remove>삭제</button></div>`;
+const questionOptionRowHtml = option => {
+  const item = typeof option === 'object' && option ? option : { option_text: option || '' };
+  return `<div class="question-option-row"><div class="localized-option-fields"><div><b class="locale-badge">KO · 국문</b><label>선택지<input name="question_option" value="${esc(item.option_text || '')}" placeholder="선택지 입력"></label><label>선택지 설명<textarea name="question_option_description" placeholder="선택지에 대한 설명을 입력하세요.">${esc(item.description_text || '')}</textarea></label></div><div><b class="locale-badge">EN · English</b><label>Option<input name="question_option_en" value="${esc(item.option_text_en || '')}" placeholder="Enter an option"></label><label>Option description<textarea name="question_option_description_en" placeholder="Enter an optional description.">${esc(item.description_text_en || '')}</textarea></label></div></div><button class="tiny danger" type="button" data-option-remove>삭제</button></div>`;
+};
 const questionRowHtml = (question = {}) => {
   const type = question.question_type || 'select';
   const options = question.options?.length ? question.options : ['', ''];
-  return `<div class="question-row" data-question-row><div class="question-row-head"><label>질문<input name="question_text" value="${esc(question.question_text || '')}" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label>답변 형식<select name="question_type">${questionTypeOptions.map(([value, label]) => `<option value="${value}" ${value === type ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label class="question-required"><input type="checkbox" name="question_required" ${question.is_required === false ? '' : 'checked'}> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><label class="question-description-field">질문 설명 (선택)<textarea name="question_description" placeholder="질문에 대한 설명을 입력하세요. 줄바꿈도 그대로 표시됩니다.">${esc(question.description_text || '')}</textarea></label><div class="question-options">${options.map(questionOptionRowHtml).join('')}</div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>`;
+  return `<div class="question-row" data-question-row><div class="question-row-head"><div class="localized-fields"><label><span class="locale-badge">KO · 국문 질문</span><input name="question_text" value="${esc(question.question_text || '')}" placeholder="예: 뒤풀이에 참석하시나요?" required></label><label><span class="locale-badge">EN · English question</span><input name="question_text_en" value="${esc(question.question_text_en || '')}" placeholder="e.g. Will you join the after-party?"></label></div><label>답변 형식<select name="question_type">${questionTypeOptions.map(([value, label]) => `<option value="${value}" ${value === type ? 'selected' : ''}>${label}</option>`).join('')}</select></label><label class="question-required"><input type="checkbox" name="question_required" ${question.is_required === false ? '' : 'checked'}> 필수</label><button class="tiny danger" type="button" data-question-remove>질문 삭제</button></div><div class="localized-fields question-description-field"><label><span class="locale-badge">KO · 국문 설명</span><textarea name="question_description" placeholder="질문에 대한 설명을 입력하세요.">${esc(question.description_text || '')}</textarea></label><label><span class="locale-badge">EN · English description</span><textarea name="question_description_en" placeholder="Enter an optional description.">${esc(question.description_text_en || '')}</textarea></label></div><div class="question-options">${options.map(questionOptionRowHtml).join('')}</div><button class="tiny secondary" type="button" data-option-add>선택지 추가</button></div>`;
 };
 
 function showFormHtml(item = {}) {
@@ -1020,18 +1041,17 @@ function showFormHtml(item = {}) {
   const ticketRow = ticket => `<div class="ticket-row"><label>티켓명<input name="ticket_name" value="${esc(ticket.name || '일반 티켓')}" placeholder="일반 티켓"></label><label>금액<input type="number" name="ticket_price" min="0" value="${ticket.price || 0}" placeholder="금액"></label><label>수량<input type="number" name="ticket_quantity" min="1" value="${ticket.total_quantity || ticket.total || 50}" placeholder="수량"></label><button class="tiny danger" type="button" data-ticket-remove>삭제</button></div>`;
   return `<section class="page-head"><span class="kicker">${editing ? 'EDIT PERFORMANCE' : 'NEW PERFORMANCE'}</span><h1>${editing ? '공연 수정' : '공연 등록'}</h1><p>공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.</p></section>
     <section class="show-form-page"><form id="show-form" class="stack">
-      <label>공연명<input name="title" required value="${esc(item.title || '')}"></label>
+      <div class="localized-fields"><label><span class="locale-badge">KO · 국문 공연명</span><input name="title" required value="${esc(item.title || '')}"></label><label><span class="locale-badge">EN · English title</span><input name="title_en" value="${esc(item.title_en || '')}"></label></div>
       <input type="hidden" name="poster_url" value="${esc(item.poster_url || '/assets/poster-1.svg')}"><input type="hidden" name="artist_avatar_url" value="${esc(item.artist_avatar_url || '/assets/artist-avatar.svg')}"><input type="hidden" name="artists" required value="${esc(item.artists || '')}">
       <label>아티스트<div class="artist-list" id="artist-list"></div><button class="tiny secondary" type="button" data-artist-add>아티스트 추가</button></label>
-      <label>공연 소개<textarea name="description" required>${esc(item.description || '')}</textarea></label>
+      <div class="localized-fields"><label><span class="locale-badge">KO · 국문 공연 소개</span><textarea name="description" required>${esc(item.description || '')}</textarea></label><label><span class="locale-badge">EN · English show description</span><textarea name="description_en">${esc(item.description_en || '')}</textarea></label></div>
       <label class="file-field">포스터 이미지<input type="file" name="poster_file" accept="image/*"><small>이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.</small></label>
-      <div class="two venue-form-row"><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label></div>
-      <label class="venue-description-field">공연장 설명 <small>(선택)</small><textarea name="venue_description" placeholder="공연장 위치, 층수, 입장 방법 등을 입력하세요.">${esc(item.venue_description || '')}</textarea></label>
+      <div class="localized-fields venue-form-row"><div class="locale-block"><b class="locale-badge">KO · 국문 공연장 정보</b><label>공연장<input name="venue_name" required value="${esc(item.venue_name || '')}"></label><label>주소<div class="input-action"><input name="address" required value="${esc(item.address || '')}"><button class="tiny secondary" type="button" data-address-search>검색</button></div></label><label class="venue-description-field">공연장 설명 <small>(선택)</small><textarea name="venue_description" placeholder="공연장 위치, 층수, 입장 방법 등을 입력하세요.">${esc(item.venue_description || '')}</textarea></label></div><div class="locale-block"><b class="locale-badge">EN · English venue information</b><label>Venue<input name="venue_name_en" value="${esc(item.venue_name_en || '')}"></label><label>Address<input name="address_en" value="${esc(item.address_en || '')}"></label><label class="venue-description-field">Venue description <small>(optional)</small><textarea name="venue_description_en" placeholder="Enter location, floor, or entry directions.">${esc(item.venue_description_en || '')}</textarea></label></div></div>
       <div class="two"><label>공연 일시<input type="datetime-local" name="start_at" required value="${localDate(item.start_at)}"></label><label>예매 시작<input type="datetime-local" name="booking_start_at" required value="${localDate(item.booking_start_at || new Date().toISOString())}"></label></div>
       <div class="two"><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><label>1회 최대 구매 수량<input type="number" name="max_tickets_per_order" min="1" max="100" required value="${Number(item.max_tickets_per_order || 4)}"><small>예매자 한 명이 한 번에 구매할 수 있는 최대 티켓 수입니다.</small></label></div>
       <div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div>
       <div class="question-editor"><div><b>예매 추가 질문</b><small>답변 형식과 질문·선택지별 설명을 설정할 수 있습니다.</small></div><div id="question-rows">${questions.map(questionRowHtml).join('')}</div><button class="tiny secondary" type="button" data-question-add>질문 추가</button></div>
-      <label>결제 안내 문구<textarea name="deposit_notice" required>${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}</textarea></label><label>환불 규정<textarea name="refund_policy" required>${esc(item.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</textarea></label>
+      <div class="localized-fields"><label><span class="locale-badge">KO · 국문 결제 안내</span><textarea name="deposit_notice" required>${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}</textarea></label><label><span class="locale-badge">EN · English payment information</span><textarea name="deposit_notice_en">${esc(item.deposit_notice_en || '')}</textarea></label></div><div class="localized-fields"><label><span class="locale-badge">KO · 국문 환불 규정</span><textarea name="refund_policy" required>${esc(item.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</textarea></label><label><span class="locale-badge">EN · English refund policy</span><textarea name="refund_policy_en">${esc(item.refund_policy_en || '')}</textarea></label></div>
       <div id="show-form-error" class="alert error hidden"></div><div class="button-row"><a class="btn outline" href="/mypage.html">취소</a><button class="btn primary grow" type="submit">${editing ? '수정 저장' : '공연 등록'}</button></div>
     </form></section>`;
 }
@@ -1043,7 +1063,7 @@ async function bindShowForm(item = {}) {
     const usesOptions = !row.querySelector('[name=question_type]').value.includes('text');
     row.classList.toggle('text-question', !usesOptions);
     $$('[name=question_option]', row).forEach(input => { input.required = usesOptions; input.disabled = !usesOptions; });
-    $$('[name=question_option_description]', row).forEach(input => { input.disabled = !usesOptions; });
+    $$('[name=question_option_en], [name=question_option_description], [name=question_option_description_en]', row).forEach(input => { input.disabled = !usesOptions; });
     $('[data-option-add]', row).disabled = !usesOptions;
   };
   renderArtistList(form);
@@ -1086,12 +1106,14 @@ async function bindShowForm(item = {}) {
     }));
     payload.questions = $$('.question-row', event.currentTarget).map(row => ({
       question_text: $('[name=question_text]', row).value,
+      question_text_en: $('[name=question_text_en]', row).value,
       description_text: $('[name=question_description]', row).value,
+      description_text_en: $('[name=question_description_en]', row).value,
       question_type: $('[name=question_type]', row).value,
       is_required: $('[name=question_required]', row).checked,
-      options: $$('[name=question_option]', row).map((input, index) => ({ option_text: input.value, description_text: $$('[name=question_option_description]', row)[index]?.value || '' })),
+      options: $$('[name=question_option]', row).map((input, index) => ({ option_text: input.value, option_text_en: $$('[name=question_option_en]', row)[index]?.value || '', description_text: $$('[name=question_option_description]', row)[index]?.value || '', description_text_en: $$('[name=question_option_description_en]', row)[index]?.value || '' })),
     }));
-    delete payload.poster_file; delete payload.ticket_name; delete payload.ticket_price; delete payload.ticket_quantity; delete payload.question_text; delete payload.question_description; delete payload.question_type; delete payload.question_required; delete payload.question_option; delete payload.question_option_description;
+    delete payload.poster_file; delete payload.ticket_name; delete payload.ticket_price; delete payload.ticket_quantity; delete payload.question_text; delete payload.question_text_en; delete payload.question_description; delete payload.question_description_en; delete payload.question_type; delete payload.question_required; delete payload.question_option; delete payload.question_option_en; delete payload.question_option_description; delete payload.question_option_description_en;
     try {
       await api(editing ? `/api/performances/${item.id}` : '/api/performances', { method: editing ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
       location.href = '/mypage.html';

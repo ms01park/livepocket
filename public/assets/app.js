@@ -58,8 +58,8 @@ const EN = {
   '이름': 'Name', '권한': 'Role', '공연 등록 회원': 'Show creator', '일반 회원': 'Member', '전체 회원': 'All members', '공연 등록 경험과 계정 상태를 확인합니다.': 'Review account status and show creation history.', '구분': 'Type', '상태': 'Status', '관리': 'Actions',
   '전체 공연 관리': 'Manage all shows', '플랫폼에 등록된 공연을 관리합니다.': 'Manage every show on the platform.', '전체 예매 관리': 'Manage all bookings', '홈 롤링 배너의 내용과 노출 순서를 관리합니다.': 'Manage home banner content and display order.', '+ 신규 배너': '+ New banner', '배너 순서 이동': 'Reorder banner', '순서': 'Order', '노출 중': 'Visible',
   '공연 / 예매자': 'Show / Booker', '추가 답변': 'Additional answers', '금액': 'Amount', '처리': 'Action', '입금 확인': 'Confirm payment', '결제 완료': 'Paid',
-  '공연 등록/수정 — Live Pocket V3.0': 'Create/edit show — Live Pocket V3.0', '공연 입력 화면을 불러오는 중…': 'Loading show editor…', '이미지 편집': 'Edit image', '확대/축소': 'Zoom', '적용': 'Apply', '아티스트 수정': 'Edit artist', '아티스트 추가': 'Add artist', '아티스트명': 'Artist name', '아티스트 이미지': 'Artist image',
-  '이미지를 선택하지 않으면 기존 이미지를 유지합니다.': 'Leave this empty to keep the current image.', '기존 아티스트를 선택하면 등록된 이미지를 재사용합니다.': 'Select an existing artist to reuse their image.', '수정 저장': 'Save changes', '추가': 'Add', '아티스트 추가 버튼으로 출연진을 등록해 주세요.': 'Use Add artist to enter the lineup.', '장르 추가': 'Add genre', '장르명': 'Genre name',
+  '공연 등록/수정 — Live Pocket V3.0': 'Create/edit show — Live Pocket V3.0', '공연 입력 화면을 불러오는 중…': 'Loading show editor…', '이미지 편집': 'Edit image', '확대/축소': 'Zoom', '적용': 'Apply', '아티스트 수정': 'Edit artist', '아티스트 추가': 'Add artist', '아티스트명': 'Artist name', '아티스트 이미지': 'Artist image', 'SNS 링크 (선택)': 'Social link (optional)', '유튜브 링크 (선택)': 'YouTube link (optional)',
+  '이미지를 선택하지 않으면 기존 이미지를 유지합니다.': 'Leave this empty to keep the current image.', '기존 아티스트를 선택하면 등록된 이미지와 링크를 재사용합니다.': 'Select an existing artist to reuse their image and links.', '수정 저장': 'Save changes', '추가': 'Add', '아티스트 추가 버튼으로 출연진을 등록해 주세요.': 'Use Add artist to enter the lineup.', '장르 추가': 'Add genre', '장르명': 'Genre name',
   '일반 티켓': 'General admission', '일반티켓': 'General admission', '뒤풀이 참석 여부': 'After-party attendance', '뒤풀이 참석여부': 'After-party attendance', '뒤풀이에 참석하시나요?': 'Will you join the after-party?',
   '참석': 'Attending', '불참': 'Not attending', '예': 'Yes', '아니오': 'No', '티켓명': 'Ticket name', '선택지 입력': 'Enter an option', '질문': 'Question', '예: 뒤풀이에 참석하시나요?': 'e.g. Will you join the after-party?', '질문 삭제': 'Delete question', '선택지 추가': 'Add option', '공연 수정': 'Edit show', '공연 등록': 'Create show',
   '공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.': 'Manage show details, tickets, and booking questions in one place.', '포스터 이미지': 'Poster image', '이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.': 'After choosing an image, adjust its scale and position to fit the poster.',
@@ -403,18 +403,48 @@ function artistEntries(namesValue, avatarsValue) {
     avatars = [];
   }
   if (!avatars.length && avatarsValue) avatars = names.map(name => ({ name, avatar: avatarsValue }));
-  return names.map((name, index) => ({ name, avatar: avatars[index]?.avatar || avatars.find(item => item.name === name)?.avatar || '/assets/artist-avatar.svg' }));
+  return names.map((name, index) => {
+    const entry = avatars[index] || avatars.find(item => item?.name === name) || {};
+    return { name, avatar: entry.avatar || '/assets/artist-avatar.svg', snsUrl: entry.snsUrl || entry.url || '', youtubeUrl: entry.youtubeUrl || '' };
+  });
 }
 
 function setArtistEntries(form, entries) {
   form.artists.value = entries.map(item => item.name).join(', ');
-  form.artist_avatar_url.value = JSON.stringify(entries.map(item => ({ name: item.name, avatar: item.avatar || '/assets/artist-avatar.svg' })));
+  form.artist_avatar_url.value = JSON.stringify(entries.map(item => ({ name: item.name, avatar: item.avatar || '/assets/artist-avatar.svg', snsUrl: item.snsUrl || '', youtubeUrl: item.youtubeUrl || '' })));
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function socialService(value) {
+  const host = (() => { try { return new URL(value).hostname.toLowerCase().replace(/^www\./, ''); } catch { return ''; } })();
+  if (host === 'instagram.com' || host.endsWith('.instagram.com')) return { name: 'Instagram', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle class="social-icon-dot" cx="17.4" cy="6.7" r="1"/></svg>' };
+  if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.com') return { name: 'Facebook', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8h3V4h-3c-3 0-5 2-5 5v2H6v4h3v7h4v-7h3.4l.6-4h-4V9c0-.7.3-1 1-1Z"/></svg>' };
+  if (host === 'x.com' || host.endsWith('.x.com') || host === 'twitter.com' || host.endsWith('.twitter.com')) return { name: 'X', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4.3l3.5 4.8L17 4h2l-5.3 6.3L20 20h-4.3l-4-5.5L7 20H5l5.8-7L5 4Zm3.3 2 8.4 12h1L9.3 6h-1Z"/></svg>' };
+  if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return { name: 'TikTok', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h3c.3 2 1.5 3.2 4 3.5v3a8 8 0 0 1-4-1.2V15a6 6 0 1 1-6-6h1v3a4 4 0 0 0-1-.1 3.1 3.1 0 1 0 3 3.1V3Z"/></svg>' };
+  if (host === 'threads.net' || host.endsWith('.threads.net')) return { name: 'Threads', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c5.4 0 8.5 3.2 8.5 8.8 0 5.5-3.1 9.2-8.2 9.2-4.9 0-8.8-3.5-8.8-8.8S6.7 3 12 3Zm.2 3c-3.5 0-5.6 2.2-5.6 6.1 0 3.7 2.4 5.9 5.7 5.9 2.7 0 4.5-1.4 4.8-3.6-.8.9-2.2 1.5-3.7 1.5-2.6 0-4.3-1.4-4.3-3.5 0-2 1.7-3.4 4.1-3.4 1.1 0 2.1.2 3 .7-.6-2.5-2.1-3.7-4-3.7Zm1.2 5.2c-.9 0-1.5.5-1.5 1.2 0 .8.6 1.2 1.6 1.2 1.3 0 2.3-.6 2.8-1.5-.8-.6-1.8-.9-2.9-.9Z"/></svg>' };
+  if (host === 'soundcloud.com' || host.endsWith('.soundcloud.com')) return { name: 'SoundCloud', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 14.5 3 11l1 3.5L5.2 9l1.1 5.5L7.7 7l1.2 7.5L10.4 5c4.2-.4 6.8 1.7 7.5 5a4 4 0 1 1 .1 8H2v-3.5Z"/></svg>' };
+  return { name: 'SNS', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1.5 1.5 0 0 0 2.1 0l3.1-3.1a2.5 2.5 0 1 0-3.5-3.5l-1.8 1.8-2.1-2.1 1.8-1.8a5.5 5.5 0 1 1 7.8 7.8l-3.1 3.1a4.5 4.5 0 0 1-6.4 0l2.1-2.2Zm2.8-2.8a1.5 1.5 0 0 0-2.1 0l-3.1 3.1a2.5 2.5 0 1 0 3.5 3.5l1.8-1.8 2.1 2.1-1.8 1.8A5.5 5.5 0 1 1 6 11.5l3.1-3.1a4.5 4.5 0 0 1 6.4 0l-2.1 2.2Z"/></svg>' };
+}
+
+function artistLinkButton(urlValue, type, artistName) {
+  const url = safeExternalUrl(urlValue);
+  if (!url) return '';
+  const service = type === 'youtube'
+    ? { name: 'YouTube', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12c0-2.1-.2-4-.5-5-.2-1-1-1.7-2-2C17.8 4.5 12 4.5 12 4.5S6.2 4.5 4.5 5c-1 .3-1.8 1-2 2C2.2 8 2 9.9 2 12s.2 4 .5 5c.2 1 1 1.7 2 2 1.7.5 7.5.5 7.5.5s5.8 0 7.5-.5c1-.3 1.8-1 2-2 .3-1 .5-2.9.5-5Zm-12 3.5v-7l6 3.5-6 3.5Z"/></svg>' }
+    : socialService(url);
+  return `<a class="artist-social-button ${type === 'youtube' ? 'youtube' : ''}" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(artistName)} ${service.name}" title="${service.name}">${service.icon}<span>${service.name}</span></a>`;
 }
 
 function artistCredits(performance) {
-  return artistEntries(performance.artists, performance.artist_avatar_url).map(item => (
-    `<span><img src="${esc(item.avatar)}" alt="">${esc(item.name)}</span>`
-  )).join('');
+  return artistEntries(performance.artists, performance.artist_avatar_url).map(item => `<div class="artist-credit-item"><span class="artist-identity"><img src="${esc(item.avatar)}" alt="">${esc(item.name)}</span><span class="artist-social-actions">${artistLinkButton(item.snsUrl, 'sns', item.name)}${artistLinkButton(item.youtubeUrl, 'youtube', item.name)}</span></div>`).join('');
 }
 
 function showLoginModal(next = location.href) {
@@ -845,7 +875,7 @@ async function openArtistAddModal(form, editIndex = null) {
   const entries = artistEntries(form.artists.value, form.artist_avatar_url.value);
   const currentEntry = editing ? entries[editIndex] : null;
   const knownArtists = await api('/api/artists').catch(() => []);
-  document.body.insertAdjacentHTML('beforeend', `<div class="modal artist-add-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><span class="kicker">ARTIST</span><h2>${editing ? '아티스트 수정' : '아티스트 추가'}</h2><form class="stack"><label class="autocomplete-field">아티스트명<input name="artist_name" autocomplete="off" required value="${esc(currentEntry?.name || '')}"><div class="artist-suggestions hidden" data-artist-suggestions></div></label><label class="file-field">아티스트 이미지<input type="file" name="artist_image" accept="image/*"><small>${editing ? '이미지를 선택하지 않으면 기존 이미지를 유지합니다.' : '기존 아티스트를 선택하면 등록된 이미지를 재사용합니다.'}</small></label><button class="btn primary" type="submit">${editing ? '수정 저장' : '추가'}</button></form></article></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<div class="modal artist-add-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><span class="kicker">ARTIST</span><h2>${editing ? '아티스트 수정' : '아티스트 추가'}</h2><form class="stack"><label class="autocomplete-field">아티스트명<input name="artist_name" autocomplete="off" required value="${esc(currentEntry?.name || '')}"><div class="artist-suggestions hidden" data-artist-suggestions></div></label><label>SNS 링크 (선택)<input type="url" name="artist_sns_url" inputmode="url" placeholder="https://instagram.com/artist" value="${esc(currentEntry?.snsUrl || '')}"></label><label>유튜브 링크 (선택)<input type="url" name="artist_youtube_url" inputmode="url" placeholder="https://youtube.com/@artist" value="${esc(currentEntry?.youtubeUrl || '')}"></label><label class="file-field">아티스트 이미지<input type="file" name="artist_image" accept="image/*"><small>${editing ? '이미지를 선택하지 않으면 기존 이미지를 유지합니다.' : '기존 아티스트를 선택하면 등록된 이미지와 링크를 재사용합니다.'}</small></label><button class="btn primary" type="submit">${editing ? '수정 저장' : '추가'}</button></form></article></div>`);
   const modal = $('.artist-add-modal');
   const artistInput = $('[name=artist_name]', modal);
   const suggestions = $('[data-artist-suggestions]', modal);
@@ -866,6 +896,9 @@ async function openArtistAddModal(form, editIndex = null) {
     if (!button) return;
     selectedArtist = knownArtists.find(item => item.name === button.dataset.artistPick) || null;
     artistInput.value = selectedArtist?.name || button.dataset.artistPick;
+    const artistModal = event.currentTarget.closest('.modal');
+    artistModal.querySelector('[name=artist_sns_url]').value = selectedArtist?.snsUrl || '';
+    artistModal.querySelector('[name=artist_youtube_url]').value = selectedArtist?.youtubeUrl || '';
     suggestions.classList.add('hidden');
   });
   modal.addEventListener('click', event => {
@@ -874,6 +907,8 @@ async function openArtistAddModal(form, editIndex = null) {
   $('form', modal).addEventListener('submit', async event => {
     event.preventDefault();
     const name = String(event.currentTarget.artist_name.value || '').trim();
+    const snsUrl = String(event.currentTarget.artist_sns_url.value || '').trim();
+    const youtubeUrl = String(event.currentTarget.artist_youtube_url.value || '').trim();
     if (!name) return;
     const file = event.currentTarget.artist_image.files[0];
     const matchedArtist = selectedArtist || knownArtists.find(item => item.name.toLowerCase() === name.toLowerCase());
@@ -881,8 +916,10 @@ async function openArtistAddModal(form, editIndex = null) {
     const nextEntries = [...artistEntries(form.artists.value, form.artist_avatar_url.value)];
     const duplicateIndex = nextEntries.findIndex((item, index) => item.name.toLowerCase() === name.toLowerCase() && index !== editIndex);
     const targetIndex = editing ? editIndex : duplicateIndex;
-    if (targetIndex >= 0) nextEntries[targetIndex] = { name, avatar };
-    else nextEntries.push({ name, avatar });
+    const nextSnsUrl = editing ? snsUrl : snsUrl || matchedArtist?.snsUrl || '';
+    const nextYoutubeUrl = editing ? youtubeUrl : youtubeUrl || matchedArtist?.youtubeUrl || '';
+    if (targetIndex >= 0) nextEntries[targetIndex] = { name, avatar, snsUrl: nextSnsUrl, youtubeUrl: nextYoutubeUrl };
+    else nextEntries.push({ name, avatar, snsUrl: nextSnsUrl, youtubeUrl: nextYoutubeUrl });
     setArtistEntries(form, nextEntries);
     renderArtistList(form);
     modal.remove();

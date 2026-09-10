@@ -45,7 +45,7 @@ body[data-page="login"] #header{display:none}
 .hero-arrow{font-size:35px;padding:0;line-height:1}
 .show-badges{right:auto;max-width:calc(100% - 170px)}.poster-wrap>.genre-badge{position:absolute;left:auto;right:14px;top:14px;width:auto;min-width:0;text-align:center;white-space:nowrap;background:#4776cf;color:#fff;padding:7px 10px;border-radius:999px;font-size:11px;font-weight:800;box-shadow:0 6px 16px rgba(0,0,0,.08)}.show-host{color:var(--muted)!important}.show-date{color:var(--violet)!important;font-weight:700}
 .calendar-wrap{display:block;margin:10px 0 0;text-align:right}.calendar-menu{left:auto;right:0;text-align:left}
-.artist-credit{flex-wrap:wrap;gap:10px 18px}.artist-credit span{display:inline-flex;align-items:center;gap:8px}
+.artist-credit{display:grid;gap:8px}.artist-credit-item{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}.artist-identity,.artist-social-actions{display:inline-flex;align-items:center;gap:8px}.artist-identity{min-width:0;font-weight:700}.artist-social-actions{flex:0 0 auto}.artist-social-button{display:inline-grid;grid-template-columns:16px auto;align-items:center;gap:5px;min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--white);color:var(--ink);font-size:11px;font-weight:800;text-decoration:none}.artist-social-button:hover{border-color:var(--ink);transform:translateY(-1px)}.artist-social-button svg{width:16px;height:16px;fill:currentColor;stroke:currentColor;stroke-width:1.7}.artist-social-button svg rect,.artist-social-button svg circle{fill:none}.artist-social-button svg .social-icon-dot{fill:currentColor;stroke:none}.artist-social-button.youtube{color:#f03}
 .reservation-confirm{background:var(--white);color:var(--ink)}
 :root[data-theme="dark"] .show-badge,:root[data-theme="dark"] .pill,:root[data-theme="dark"] .success-mark{color:#171719}:root[data-theme="dark"] .show-badge.secondary{background:var(--white);color:var(--ink)}:root[data-theme="dark"] .poster-wrap>.genre-badge{background:#4776cf;color:#fff}
 
@@ -483,8 +483,7 @@ body[data-page="login"] #header{display:none}
 .calendar-wrap{flex:0 0 auto;margin-left:auto}
 .map-actions{display:grid!important;grid-template-columns:1fr!important;flex:0 0 auto;width:auto!important;gap:6px}
 .map-button{flex:0 0 auto;width:auto!important;min-width:70px;min-height:28px;padding:0 9px;font-size:11px;border-radius:8px}
-.artist-credit{flex-wrap:nowrap;overflow:hidden}
-.artist-credit span{flex:0 0 auto}
+.artist-credit{overflow:visible}
 .ticket-summary-row{grid-template-columns:max-content max-content minmax(0,1fr);align-items:center;gap:6px 10px;padding:7px 9px}
 .ticket-summary-row b{justify-self:start}
 .ticket-summary-row small{grid-column:auto;justify-self:end;white-space:nowrap;font-size:11px}

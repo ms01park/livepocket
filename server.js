@@ -193,7 +193,25 @@ function artistEntries(namesValue, avatarsValue) {
   let avatars = [];
   try { const parsed = JSON.parse(avatarsValue || '[]'); avatars = Array.isArray(parsed) ? parsed : []; } catch { avatars = []; }
   if (!avatars.length && avatarsValue) avatars = names.map(name => ({ name, avatar: avatarsValue }));
-  return names.map((name, index) => ({ name, avatar: avatars[index]?.avatar || avatars.find(item => item.name === name)?.avatar || '/assets/artist-avatar.svg' }));
+  return names.map((name, index) => {
+    const entry = avatars[index] || avatars.find(item => item?.name === name) || {};
+    return { name, avatar: entry.avatar || '/assets/artist-avatar.svg', snsUrl: entry.snsUrl || entry.url || '', youtubeUrl: entry.youtubeUrl || '' };
+  });
+}
+function normalizeArtistMetadata(namesValue, metadataValue) {
+  const entries = artistEntries(namesValue, metadataValue).map(entry => {
+    const normalizeUrl = (value, label) => {
+      const url = String(value || '').trim();
+      if (!url) return '';
+      let parsed;
+      try { parsed = new URL(url); } catch { throw new Error(`${entry.name} 아티스트의 ${label}를 확인해 주세요.`); }
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error(`${entry.name} 아티스트의 ${label}는 http 또는 https 주소만 사용할 수 있습니다.`);
+      if (label === '유튜브 링크' && !/(^|\.)(youtube\.com|youtu\.be)$/i.test(parsed.hostname)) throw new Error(`${entry.name} 아티스트의 유튜브 링크는 YouTube 주소를 입력해 주세요.`);
+      return parsed.href;
+    };
+    return { name: entry.name, avatar: entry.avatar, snsUrl: normalizeUrl(entry.snsUrl, 'SNS 링크'), youtubeUrl: normalizeUrl(entry.youtubeUrl, '유튜브 링크') };
+  });
+  return JSON.stringify(entries);
 }
 function normalizePerformance(input) {
   const required = ['title','artists','description','poster_url','venue_name','address','start_at','booking_start_at','booking_close_at'];
@@ -222,11 +240,12 @@ function normalizePerformance(input) {
   });
   const maxTicketsPerOrder = Math.round(Number(input.max_tickets_per_order == null || input.max_tickets_per_order === '' ? 4 : input.max_tickets_per_order));
   if (!Number.isFinite(maxTicketsPerOrder) || maxTicketsPerOrder < 1 || maxTicketsPerOrder > 100) throw new Error('1회 최대 구매 수량은 1~100 사이로 입력해 주세요.');
+  const artists = String(input.artists).trim();
   return {
-    title:String(input.title).trim(), genre:'', artists:String(input.artists).trim(),
+    title:String(input.title).trim(), genre:'', artists,
     description:String(input.description).trim(), poster_url:String(input.poster_url).trim(), venue_name:String(input.venue_name).trim(), venue_description:String(input.venue_description || '').trim(),
     address:String(input.address).trim(), start_at:String(input.start_at), booking_start_at:String(input.booking_start_at), booking_close_at:String(input.booking_close_at),
-    host_avatar_url:String(input.host_avatar_url || '/assets/host-avatar.svg').trim(), artist_avatar_url:String(input.artist_avatar_url || '/assets/artist-avatar.svg').trim(),
+    host_avatar_url:String(input.host_avatar_url || '/assets/host-avatar.svg').trim(), artist_avatar_url:normalizeArtistMetadata(artists, input.artist_avatar_url || '/assets/artist-avatar.svg'),
     deposit_notice:String(input.deposit_notice || DEFAULT_DEPOSIT_NOTICE).trim(),
     refund_policy:String(input.refund_policy || DEFAULT_REFUND_POLICY).trim(), max_tickets_per_order:maxTicketsPerOrder,
     tickets: normalizedTickets, questions,
@@ -416,7 +435,7 @@ async function api(req,res,url){
   if(req.method==='GET'&&parts[1]==='performance-poster'&&parts[2])return await sendPerformancePoster(res,await get("SELECT poster_url FROM performances WHERE id=? AND status!='HIDDEN'",[parts[2]]),url.searchParams.get('size'));
   if(req.method==='GET'&&url.pathname==='/api/banners')return json(res,200,(await all('SELECT * FROM banners WHERE is_active=1 ORDER BY sort_order')).map(publicBanner),publicCache(60));
   if(req.method==='GET'&&url.pathname==='/api/taxonomy/genres')return json(res,200,await all("SELECT * FROM taxonomy WHERE type='genre' AND is_active=1 ORDER BY sort_order,name"));
-  if(req.method==='GET'&&url.pathname==='/api/artists'){const map=new Map();for(const row of await all("SELECT artists,artist_avatar_url FROM performances WHERE status!='HIDDEN' ORDER BY created_at DESC,id DESC")){for(const artist of artistEntries(row.artists,row.artist_avatar_url)){const key=artist.name.toLowerCase();const current=map.get(key);if(current)current.performanceCount+=1;else map.set(key,{name:artist.name,avatar:artist.avatar,performanceCount:1});}}return json(res,200,[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')));}
+  if(req.method==='GET'&&url.pathname==='/api/artists'){const map=new Map();for(const row of await all("SELECT artists,artist_avatar_url FROM performances WHERE status!='HIDDEN' ORDER BY created_at DESC,id DESC")){for(const artist of artistEntries(row.artists,row.artist_avatar_url)){const key=artist.name.toLowerCase();const current=map.get(key);if(current)current.performanceCount+=1;else map.set(key,{name:artist.name,avatar:artist.avatar,snsUrl:artist.snsUrl,youtubeUrl:artist.youtubeUrl,performanceCount:1});}}return json(res,200,[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')));}
   if(req.method==='GET'&&url.pathname==='/api/performances')return json(res,200,await performanceRows(),{'Cache-Control':'no-store'});
   if(req.method==='GET'&&parts[1]==='performances'&&parts[2]){let p=await get(`${performanceSelect} WHERE p.id=?`,[parts[2]]);if(!p)return json(res,404,{error:'공연을 찾을 수 없습니다.'});p.tickets=await all('SELECT * FROM ticket_types WHERE performance_id=? ORDER BY id',[p.id]);p.questions=await performanceQuestions(p.id);p.is_favorite=false;p.recommendations=(await all(`${performanceSelect} WHERE p.id!=? AND p.status!='HIDDEN' ORDER BY p.start_at LIMIT 3`,[p.id])).map(publicPerformance);return json(res,200,publicPerformance(p));}
   if(req.method==='GET'&&parts[1]==='tickets'&&parts[2]==='verify'&&parts[3]){const row=await get(`SELECT q.qr_token,r.reservation_no,r.status booking_status,r.depositor_name,r.phone,p.title performance_title,p.start_at performance_date,p.venue_name venue,p.status performance_status,(SELECT COALESCE(SUM(quantity),0) FROM reservation_tickets WHERE reservation_id=r.id) ticket_count FROM qr_tickets q JOIN reservations r ON r.id=q.reservation_id LEFT JOIN performances p ON p.id=r.performance_id WHERE q.qr_token=?`,[parts[3]]);if(!row)return json(res,404,{error:'유효하지 않은 예매 정보입니다.',code:'INVALID_QR'});if(!row.performance_title||row.performance_status==='HIDDEN')return json(res,404,{error:'공연 정보를 찾을 수 없습니다.',code:'PERFORMANCE_NOT_FOUND'});return json(res,200,{performanceTitle:row.performance_title,performanceDate:row.performance_date,venue:row.venue,bookerName:row.depositor_name,maskedPhone:maskPhone(row.phone),ticketCount:Number(row.ticket_count||0),bookingNumber:row.reservation_no,bookingStatus:row.booking_status});}

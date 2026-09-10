@@ -440,7 +440,7 @@ function artistLinkButton(urlValue, type, artistName) {
   const service = type === 'youtube'
     ? { name: 'YouTube', icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12c0-2.1-.2-4-.5-5-.2-1-1-1.7-2-2C17.8 4.5 12 4.5 12 4.5S6.2 4.5 4.5 5c-1 .3-1.8 1-2 2C2.2 8 2 9.9 2 12s.2 4 .5 5c.2 1 1 1.7 2 2 1.7.5 7.5.5 7.5.5s5.8 0 7.5-.5c1-.3 1.8-1 2-2 .3-1 .5-2.9.5-5Zm-12 3.5v-7l6 3.5-6 3.5Z"/></svg>' }
     : socialService(url);
-  return `<a class="artist-social-button ${type === 'youtube' ? 'youtube' : ''}" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(artistName)} ${service.name}" title="${service.name}">${service.icon}<span>${service.name}</span></a>`;
+  return `<a class="artist-social-button ${type === 'youtube' ? 'youtube' : ''}" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(artistName)} ${service.name}" title="${service.name}">${service.icon}</a>`;
 }
 
 function artistCredits(performance) {

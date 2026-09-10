@@ -588,10 +588,10 @@ body[data-page="login"] #header{display:none}
 .ticket-summary{gap:0}
 .ticket-summary-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:9px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent}
 .ticket-summary-row:last-child{border-bottom:0}
-.map-icon-button{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border:1px solid var(--line);border-radius:50%;background:var(--white);color:var(--ink)}
+.map-icon-button{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border:1px solid var(--line);border-radius:50%;background:var(--white);color:var(--ink)}
 .map-icon-button:hover{border-color:var(--ink);transform:translateY(-1px)}
-.map-icon-button svg{width:20px;height:20px;fill:currentColor}
-.calendar-icon-button{width:38px!important;min-width:38px;padding:0!important;border-radius:50%}
+.map-icon-button svg{width:16px;height:16px;fill:currentColor}
+.calendar-icon-button{width:32px!important;min-width:32px;padding:0!important;border-radius:50%}
 .login-modal article{width:min(480px,100%);max-height:92vh;overflow:auto}
 .question-editor{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:12px}
 .question-editor>div:first-child{display:grid;gap:4px}
@@ -618,7 +618,7 @@ body[data-page="login"] #header{display:none}
 :root[data-theme="dark"] .stack textarea,:root[data-theme="dark"] .booking-option{background:var(--white);color:var(--ink);border-color:var(--line)}
 .reservation-answer{display:block;margin-top:5px;color:var(--muted);line-height:1.5}
 .reservation-answer+.reservation-answer{margin-top:8px}
-@media(max-width:620px){.question-row-head{grid-template-columns:1fr}.question-required{min-height:0}.question-option-row{grid-template-columns:1fr}.question-option-row>.tiny{margin-top:0}.map-icon-button{width:38px!important}.venue-row{flex-direction:row;align-items:center}}
+@media(max-width:620px){.question-row-head{grid-template-columns:1fr}.question-required{min-height:0}.question-option-row{grid-template-columns:1fr}.question-option-row>.tiny{margin-top:0}.map-icon-button{width:32px!important}.venue-row{flex-direction:row;align-items:center}}
 .discover{padding-top:44px}
 
 /* Ko / En language control */

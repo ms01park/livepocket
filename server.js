@@ -126,6 +126,15 @@ async function initDb() {
     ALTER TABLE performance_question_options ADD COLUMN IF NOT EXISTS option_text_en TEXT DEFAULT '';
     ALTER TABLE performance_question_options ADD COLUMN IF NOT EXISTS description_text_en TEXT DEFAULT '';
     ALTER TABLE favorites ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+    CREATE INDEX IF NOT EXISTS performances_status_start_idx ON performances(status, start_at, id);
+    CREATE INDEX IF NOT EXISTS performances_manager_status_idx ON performances(manager_id, status, id);
+    CREATE INDEX IF NOT EXISTS ticket_types_performance_idx ON ticket_types(performance_id);
+    CREATE INDEX IF NOT EXISTS reservations_user_created_idx ON reservations(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS reservations_performance_created_idx ON reservations(performance_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS reservation_tickets_reservation_idx ON reservation_tickets(reservation_id);
+    CREATE INDEX IF NOT EXISTS favorites_performance_idx ON favorites(performance_id);
+    CREATE INDEX IF NOT EXISTS banners_active_sort_idx ON banners(is_active, sort_order, id);
+    CREATE INDEX IF NOT EXISTS taxonomy_type_active_sort_idx ON taxonomy(type, is_active, sort_order, name);
     CREATE INDEX IF NOT EXISTS performance_questions_performance_idx ON performance_questions(performance_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS reservation_answers_reservation_idx ON reservation_answers(reservation_id, id);
   `);
@@ -187,13 +196,24 @@ async function initFeatureDb() {
     ALTER TABLE performance_question_options ADD COLUMN IF NOT EXISTS description_text TEXT DEFAULT '';
     ALTER TABLE performance_question_options ADD COLUMN IF NOT EXISTS option_text_en TEXT DEFAULT '';
     ALTER TABLE performance_question_options ADD COLUMN IF NOT EXISTS description_text_en TEXT DEFAULT '';
+    CREATE INDEX IF NOT EXISTS performances_status_start_idx ON performances(status, start_at, id);
+    CREATE INDEX IF NOT EXISTS performances_manager_status_idx ON performances(manager_id, status, id);
+    CREATE INDEX IF NOT EXISTS ticket_types_performance_idx ON ticket_types(performance_id);
+    CREATE INDEX IF NOT EXISTS reservations_user_created_idx ON reservations(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS reservations_performance_created_idx ON reservations(performance_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS reservation_tickets_reservation_idx ON reservation_tickets(reservation_id);
+    CREATE INDEX IF NOT EXISTS favorites_performance_idx ON favorites(performance_id);
+    CREATE INDEX IF NOT EXISTS banners_active_sort_idx ON banners(is_active, sort_order, id);
+    CREATE INDEX IF NOT EXISTS taxonomy_type_active_sort_idx ON taxonomy(type, is_active, sort_order, name);
     CREATE INDEX IF NOT EXISTS performance_questions_performance_idx ON performance_questions(performance_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS reservation_answers_reservation_idx ON reservation_answers(reservation_id, id);
   `);
 }
 
 const json = (res, status, data, headers = {}) => { res.writeHead(status, {'Content-Type':'application/json; charset=utf-8', ...headers}); res.end(JSON.stringify(data)); };
-const publicCache = seconds => ({'Cache-Control':`public, s-maxage=${seconds}, stale-while-revalidate=600`});
+const publicCache = (seconds, staleSeconds = Math.max(seconds * 4, 60)) => ({
+  'Cache-Control': `public, max-age=0, s-maxage=${seconds}, stale-while-revalidate=${staleSeconds}`,
+});
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const cookieMap = req => Object.fromEntries((req.headers.cookie||'').split(';').filter(Boolean).map(x=>x.trim().split('=').map(decodeURIComponent)));
 async function currentUser(req) { const sid = cookieMap(req).lp_session; return sid ? get(`SELECT u.id,u.email,u.name,u.phone,u.role,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id=? AND s.expires_at>CURRENT_TIMESTAMP`, [sid]) : null; }
@@ -203,11 +223,19 @@ async function body(req){let raw='';for await(const c of req){raw+=c;if(raw.leng
 const safeUser = u => u && ({id:u.id,email:u.email,name:u.name,phone:u.phone,role:u.role,status:u.status});
 
 const performanceSelect = `SELECT p.*,owner.name host_name,
-  COALESCE((SELECT MIN(price) FROM ticket_types WHERE performance_id=p.id),0) price,
-  COALESCE((SELECT SUM(total_quantity) FROM ticket_types WHERE performance_id=p.id),0) total,
-  COALESCE((SELECT SUM(remaining_quantity) FROM ticket_types WHERE performance_id=p.id),0) remaining,
-  COALESCE((SELECT COUNT(*) FROM favorites WHERE performance_id=p.id),0) favorite_count
-  FROM performances p LEFT JOIN users owner ON owner.id=p.manager_id`;
+  COALESCE(ticket_stats.price,0) price,
+  COALESCE(ticket_stats.total,0) total,
+  COALESCE(ticket_stats.remaining,0) remaining,
+  COALESCE(favorite_stats.favorite_count,0) favorite_count
+  FROM performances p
+  LEFT JOIN users owner ON owner.id=p.manager_id
+  LEFT JOIN LATERAL (
+    SELECT MIN(price) price,SUM(total_quantity) total,SUM(remaining_quantity) remaining
+    FROM ticket_types WHERE performance_id=p.id
+  ) ticket_stats ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*) favorite_count FROM favorites WHERE performance_id=p.id
+  ) favorite_stats ON TRUE`;
 async function performanceRows(where = "p.status!='HIDDEN'", args = [], client = pool) { return (await all(`${performanceSelect} WHERE ${where} ORDER BY p.start_at`, args, client)).map(publicPerformance); }
 function canManagePerformance(user, performance) { return user && performance && (user.role === 'SUPER_ADMIN' || Number(performance.manager_id) === Number(user.id)); }
 function artistEntries(namesValue, avatarsValue) {
@@ -387,9 +415,24 @@ async function compactStoredImages() {
     await run('UPDATE performances SET poster_url=? WHERE id=?', [await compressDataImageUrl(row.poster_url, 520, 694, 84), row.id]);
   }
 }
+const transformedImageCache = new Map();
+const MAX_TRANSFORMED_IMAGES = 32;
+function rememberTransformedImage(key, value) {
+  if (transformedImageCache.has(key)) transformedImageCache.delete(key);
+  transformedImageCache.set(key, value);
+  while (transformedImageCache.size > MAX_TRANSFORMED_IMAGES) transformedImageCache.delete(transformedImageCache.keys().next().value);
+}
 async function sendStoredImage(res, row, column, width, height, quality = 82) {
   const source = String(row?.image_url || '');
   if (!source) { res.writeHead(404); return res.end('Not found'); }
+  const cacheKey = `${column}:${width}:${height}:${quality}:${crypto.createHash('sha256').update(source).digest('hex')}`;
+  const cached = transformedImageCache.get(cacheKey);
+  if (cached) {
+    transformedImageCache.delete(cacheKey);
+    transformedImageCache.set(cacheKey, cached);
+    res.writeHead(200, {'Content-Type':cached.type,'Content-Length':cached.body.length,'Cache-Control':'public, max-age=31536000, s-maxage=31536000, immutable'});
+    return res.end(cached.body);
+  }
   const data = dataImageParts(source);
   let body;
   let type;
@@ -411,6 +454,7 @@ async function sendStoredImage(res, row, column, width, height, quality = 82) {
     body = await sharp(body).resize(width, height, {fit:'cover'}).flatten({background:'#fff'}).jpeg({quality, mozjpeg:true}).toBuffer();
     type = 'image/jpeg';
   }
+  rememberTransformedImage(cacheKey, {body, type});
   res.writeHead(200, {'Content-Type':type,'Content-Length':body.length,'Cache-Control':'public, max-age=31536000, s-maxage=31536000, immutable'});
   return res.end(body);
 }
@@ -436,17 +480,39 @@ async function metricSeries(user) {
   const today = new Date();
   const days = Array.from({length:14}, (_, index) => { const current = new Date(today); current.setDate(today.getDate() - (13 - index)); return current.toISOString().slice(0, 10); });
   const result = {};
+  if (!accessible.length) return Object.fromEntries(keys.map(key => [key, days.map(date => ({date,bookingRate:0,favorites:0}))]));
+
+  const placeholders = accessible.map(() => '?').join(',');
+  const [ticketTotals, bookingEvents, favoriteEvents] = await Promise.all([
+    all(`SELECT performance_id,COALESCE(SUM(total_quantity),0) total FROM ticket_types WHERE performance_id IN (${placeholders}) GROUP BY performance_id`, accessible),
+    all(`SELECT r.performance_id,TO_CHAR(r.created_at::date,'YYYY-MM-DD') day,COALESCE(SUM(rt.quantity),0) n
+      FROM reservations r JOIN reservation_tickets rt ON rt.reservation_id=r.id
+      WHERE r.performance_id IN (${placeholders}) AND r.status!='CANCELLED' AND r.created_at::date<=?::date
+      GROUP BY r.performance_id,r.created_at::date`, [...accessible, days.at(-1)]),
+    all(`SELECT performance_id,TO_CHAR(COALESCE(created_at,CURRENT_TIMESTAMP)::date,'YYYY-MM-DD') day,COUNT(*) n
+      FROM favorites WHERE performance_id IN (${placeholders}) AND COALESCE(created_at,CURRENT_TIMESTAMP)::date<=?::date
+      GROUP BY performance_id,COALESCE(created_at,CURRENT_TIMESTAMP)::date`, [...accessible, days.at(-1)]),
+  ]);
+  const totals = new Map(ticketTotals.map(row => [Number(row.performance_id), Number(row.total)]));
+  const eventMap = rows => {
+    const mapped = new Map(accessible.map(id => [id, new Map()]));
+    for (const row of rows) mapped.get(Number(row.performance_id))?.set(row.day, Number(row.n));
+    return mapped;
+  };
+  const bookings = eventMap(bookingEvents);
+  const favorites = eventMap(favoriteEvents);
+  const cumulative = (events, ids, day) => ids.reduce((sum, id) => {
+    for (const [eventDay, count] of events.get(id) || []) if (eventDay <= day) sum += count;
+    return sum;
+  }, 0);
+
   for (const key of keys) {
     const ids = key === 'all' ? accessible : [Number(key)];
-    if (!ids.length) { result[key] = days.map(date => ({date,bookingRate:0,favorites:0})); continue; }
-    const placeholders = ids.map(() => '?').join(',');
-    const total = Number((await get(`SELECT COALESCE(SUM(total_quantity),0) total FROM ticket_types WHERE performance_id IN (${placeholders})`, ids)).total);
-    result[key] = [];
-    for (const day of days) {
-      const booked = Number((await get(`SELECT COALESCE(SUM(rt.quantity),0) n FROM reservation_tickets rt JOIN reservations r ON r.id=rt.reservation_id WHERE r.performance_id IN (${placeholders}) AND r.status!='CANCELLED' AND r.created_at::date<=?::date`, [...ids, day])).n);
-      const favorites = Number((await get(`SELECT COUNT(*) n FROM favorites WHERE performance_id IN (${placeholders}) AND COALESCE(created_at,CURRENT_TIMESTAMP)::date<=?::date`, [...ids, day])).n);
-      result[key].push({date:day,bookingRate:total?Math.round(booked/total*100):0,favorites});
-    }
+    const total = ids.reduce((sum, id) => sum + (totals.get(id) || 0), 0);
+    result[key] = days.map(date => {
+      const booked = cumulative(bookings, ids, date);
+      return {date,bookingRate:total?Math.round(booked/total*100):0,favorites:cumulative(favorites,ids,date)};
+    });
   }
   return result;
 }
@@ -457,11 +523,11 @@ async function api(req,res,url){
   if(req.method==='GET'&&url.pathname==='/api/concert-detail')return await sendConcertDetailPage(req,res,url);
   if(req.method==='GET'&&parts[1]==='banner-image'&&parts[2])return await sendBannerImage(res,await get('SELECT image_url FROM banners WHERE id=? AND is_active=1',[parts[2]]));
   if(req.method==='GET'&&parts[1]==='performance-poster'&&parts[2])return await sendPerformancePoster(res,await get("SELECT poster_url FROM performances WHERE id=? AND status!='HIDDEN'",[parts[2]]),url.searchParams.get('size'));
-  if(req.method==='GET'&&url.pathname==='/api/banners')return json(res,200,(await all('SELECT * FROM banners WHERE is_active=1 ORDER BY sort_order')).map(publicBanner),publicCache(60));
-  if(req.method==='GET'&&url.pathname==='/api/taxonomy/genres')return json(res,200,await all("SELECT * FROM taxonomy WHERE type='genre' AND is_active=1 ORDER BY sort_order,name"));
-  if(req.method==='GET'&&url.pathname==='/api/artists'){const map=new Map();for(const row of await all("SELECT artists,artist_avatar_url FROM performances WHERE status!='HIDDEN' ORDER BY created_at DESC,id DESC")){for(const artist of artistEntries(row.artists,row.artist_avatar_url)){const key=artist.name.toLowerCase();const current=map.get(key);if(current)current.performanceCount+=1;else map.set(key,{name:artist.name,avatar:artist.avatar,snsUrl:artist.snsUrl,youtubeUrl:artist.youtubeUrl,performanceCount:1});}}return json(res,200,[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')));}
-  if(req.method==='GET'&&url.pathname==='/api/performances')return json(res,200,await performanceRows(),{'Cache-Control':'no-store'});
-  if(req.method==='GET'&&parts[1]==='performances'&&parts[2]){let p=await get(`${performanceSelect} WHERE p.id=?`,[parts[2]]);if(!p)return json(res,404,{error:'공연을 찾을 수 없습니다.'});p.tickets=await all('SELECT * FROM ticket_types WHERE performance_id=? ORDER BY id',[p.id]);p.questions=await performanceQuestions(p.id);p.is_favorite=false;p.recommendations=(await all(`${performanceSelect} WHERE p.id!=? AND p.status!='HIDDEN' ORDER BY p.start_at LIMIT 3`,[p.id])).map(publicPerformance);return json(res,200,publicPerformance(p));}
+  if(req.method==='GET'&&url.pathname==='/api/banners')return json(res,200,(await all('SELECT * FROM banners WHERE is_active=1 ORDER BY sort_order')).map(publicBanner),publicCache(60,300));
+  if(req.method==='GET'&&url.pathname==='/api/taxonomy/genres')return json(res,200,await all("SELECT * FROM taxonomy WHERE type='genre' AND is_active=1 ORDER BY sort_order,name"),publicCache(300,900));
+  if(req.method==='GET'&&url.pathname==='/api/artists'){const map=new Map();for(const row of await all("SELECT artists,artist_avatar_url FROM performances WHERE status!='HIDDEN' ORDER BY created_at DESC,id DESC")){for(const artist of artistEntries(row.artists,row.artist_avatar_url)){const key=artist.name.toLowerCase();const current=map.get(key);if(current)current.performanceCount+=1;else map.set(key,{name:artist.name,avatar:artist.avatar,snsUrl:artist.snsUrl,youtubeUrl:artist.youtubeUrl,performanceCount:1});}}return json(res,200,[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')),publicCache(60,300));}
+  if(req.method==='GET'&&url.pathname==='/api/performances')return json(res,200,await performanceRows(),publicCache(10,30));
+  if(req.method==='GET'&&parts[1]==='performances'&&parts[2]){let p=await get(`${performanceSelect} WHERE p.id=? AND p.status!='HIDDEN'`,[parts[2]]);if(!p)return json(res,404,{error:'공연을 찾을 수 없습니다.'});p.tickets=await all('SELECT * FROM ticket_types WHERE performance_id=? ORDER BY id',[p.id]);p.questions=await performanceQuestions(p.id);p.is_favorite=false;p.recommendations=(await all(`${performanceSelect} WHERE p.id!=? AND p.status!='HIDDEN' ORDER BY p.start_at LIMIT 3`,[p.id])).map(publicPerformance);return json(res,200,publicPerformance(p),publicCache(5,15));}
   if(req.method==='GET'&&parts[1]==='tickets'&&parts[2]==='verify'&&parts[3]){const row=await get(`SELECT q.qr_token,r.reservation_no,r.status booking_status,r.depositor_name,r.phone,p.title performance_title,p.start_at performance_date,p.venue_name venue,p.status performance_status,(SELECT COALESCE(SUM(quantity),0) FROM reservation_tickets WHERE reservation_id=r.id) ticket_count FROM qr_tickets q JOIN reservations r ON r.id=q.reservation_id LEFT JOIN performances p ON p.id=r.performance_id WHERE q.qr_token=?`,[parts[3]]);if(!row)return json(res,404,{error:'유효하지 않은 예매 정보입니다.',code:'INVALID_QR'});if(!row.performance_title||row.performance_status==='HIDDEN')return json(res,404,{error:'공연 정보를 찾을 수 없습니다.',code:'PERFORMANCE_NOT_FOUND'});return json(res,200,{performanceTitle:row.performance_title,performanceDate:row.performance_date,venue:row.venue,bookerName:row.depositor_name,maskedPhone:maskPhone(row.phone),ticketCount:Number(row.ticket_count||0),bookingNumber:row.reservation_no,bookingStatus:row.booking_status});}
   if(req.method==='GET'&&url.pathname==='/api/me')return json(res,200,{user:safeUser(await currentUser(req))});
   if(req.method==='POST'&&url.pathname==='/api/auth/register'){const d=await body(req),email=String(d.email||'').trim().toLowerCase(),password=String(d.password||''),nickname=String(d.nickname||'').trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json(res,400,{error:'올바른 이메일 주소를 입력해 주세요.'});if(password.length<8||!/[A-Za-z]/.test(password)||!/[0-9]/.test(password))return json(res,400,{error:'비밀번호는 8자 이상이며 영문과 숫자를 함께 포함해야 합니다.'});if(!nickname)return json(res,400,{error:'닉네임을 입력해 주세요.'});if(hasBlockedNickname(nickname))return json(res,400,{error:'비속어 또는 코드 형태가 포함된 닉네임은 사용할 수 없습니다.'});if(await get('SELECT 1 FROM users WHERE email=?',[email]))return json(res,409,{error:'이미 가입된 이메일입니다.'});const user=await get("INSERT INTO users(email,name,role,password_hash) VALUES(?,?,'USER',?) RETURNING *",[email,nickname,hashPassword(password)]);return json(res,201,{user:safeUser(user)},{'Set-Cookie':await sessionCookie(user.id)});}
@@ -536,7 +602,7 @@ async function api(req,res,url){
 }
 
 const MIME={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
-const server=http.createServer(async(req,res)=>{try{const url=new URL(req.url,BASE);if(url.pathname.startsWith('/api/'))return await api(req,res,url);const performancePath=url.pathname.match(/^\/performances\/(\d+)\/?$/);if(req.method==='GET'&&performancePath){url.searchParams.set('id',performancePath[1]);return await sendConcertDetailPage(req,res,url);}if(req.method==='GET'&&url.pathname==='/concert-detail.html'&&url.searchParams.get('id')){res.writeHead(307,{Location:`/performances/${encodeURIComponent(url.searchParams.get('id'))}`});return res.end();}if(req.method==='GET'&&url.pathname==='/concert-detail.html')return await sendConcertDetailPage(req,res,url);if(url.pathname==='/admin'||url.pathname==='/admin/'){res.writeHead(302,{Location:'/login.html'});return res.end();}let file=url.pathname==='/'?'/index.html':url.pathname;if(/^\/tickets\/verify\/[^/]+$/.test(url.pathname))file='/ticket-verify.html';file=path.normalize(file).replace(/^(\.\.[/\\])+/, '');const full=path.join(ROOT,file);if(!full.startsWith(ROOT)||!fs.existsSync(full)||fs.statSync(full).isDirectory()){res.writeHead(404);return res.end('Not found');}res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream','Cache-Control':path.extname(full)==='.html'?'no-cache':'public, max-age=3600'});fs.createReadStream(full).pipe(res);}catch(e){console.error(e);if(!res.headersSent)json(res,500,{error:'서버 오류가 발생했습니다.'});}});
+const server=http.createServer(async(req,res)=>{try{const url=new URL(req.url,BASE);if(url.pathname.startsWith('/api/'))return await api(req,res,url);const performancePath=url.pathname.match(/^\/performances\/(\d+)\/?$/);if(req.method==='GET'&&performancePath){url.searchParams.set('id',performancePath[1]);return await sendConcertDetailPage(req,res,url);}if(req.method==='GET'&&url.pathname==='/concert-detail.html'&&url.searchParams.get('id')){res.writeHead(307,{Location:`/performances/${encodeURIComponent(url.searchParams.get('id'))}`});return res.end();}if(req.method==='GET'&&url.pathname==='/concert-detail.html')return await sendConcertDetailPage(req,res,url);if(url.pathname==='/admin'||url.pathname==='/admin/'){res.writeHead(302,{Location:'/login.html'});return res.end();}let file=url.pathname==='/'?'/index.html':url.pathname;if(/^\/tickets\/verify\/[^/]+$/.test(url.pathname))file='/ticket-verify.html';file=path.normalize(file).replace(/^(\.\.[/\\])+/, '');const full=path.join(ROOT,file);if(!full.startsWith(ROOT)||!fs.existsSync(full)||fs.statSync(full).isDirectory()){res.writeHead(404);return res.end('Not found');}const extension=path.extname(full);const cacheControl=extension==='.html'?'no-cache':url.searchParams.has('v')?'public, max-age=31536000, immutable':'public, max-age=86400';res.writeHead(200,{'Content-Type':MIME[extension]||'application/octet-stream','Cache-Control':cacheControl});fs.createReadStream(full).pipe(res);}catch(e){console.error(e);if(!res.headersSent)json(res,500,{error:'서버 오류가 발생했습니다.'});}});
 
 const ready = SHOULD_INIT_DB ? initDb() : initFeatureDb();
 

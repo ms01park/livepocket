@@ -14,6 +14,20 @@
     { "source": "/performances/:id", "destination": "/api/concert-detail/:id" },
     { "source": "/tickets/verify/:token", "destination": "/ticket-verify.html" }
   ],
+  "headers": [
+    {
+      "source": "/assets/app.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/assets/styles.css",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ],
   "functions": {
     "server.js": {
       "maxDuration": 10,

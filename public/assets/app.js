@@ -159,7 +159,7 @@ function shell() {
   const header = $('#header');
   if (header) {
     header.innerHTML = `<div class="nav-wrap">
-      <a class="brand" href="/"><b>LP</b><strong>Live Pocket</strong><em>${APP_VERSION}</em></a>
+      <a class="brand" href="/"><b>LP</b><strong>Live Pocket</strong></a>
       <nav>
         <a href="/mypage.html">마이페이지</a>
         <a id="auth-link" href="#login">로그인</a>
@@ -171,7 +171,7 @@ function shell() {
     applyTheme(localStorage.getItem('lp-theme') || 'light');
   }
   const footer = $('#footer');
-  if (footer) footer.innerHTML = `<div class="footer-wrap"><a class="brand light" href="/"><b>LP</b><strong>Live Pocket</strong><em>${APP_VERSION}</em></a><p>작은 무대의 큰 순간을 가장 가까이에서.</p><small>© 2026 Live Pocket ${APP_VERSION}. All rights reserved.</small></div>`;
+  if (footer) footer.innerHTML = `<div class="footer-wrap"><a class="brand light" href="/"><b>LP</b><strong>Live Pocket</strong></a><p>작은 무대의 큰 순간을 가장 가까이에서.</p><small>© 2026 Live Pocket ${APP_VERSION}. All rights reserved.</small></div>`;
   $('.menu')?.addEventListener('click', () => $('#header nav').classList.toggle('open'));
   $$('[data-language]').forEach(button => button.addEventListener('click', () => {
     const language = button.dataset.language;

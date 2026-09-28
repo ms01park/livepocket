@@ -164,7 +164,7 @@ function shell() {
         <a href="/mypage.html">마이페이지</a>
         <a id="auth-link" href="#login">로그인</a>
       </nav>
-      <div class="language-switch" role="group" aria-label="Language"><button type="button" data-language="ko" aria-pressed="${CURRENT_LANGUAGE === 'ko'}">Ko</button><span aria-hidden="true">/</span><button type="button" data-language="en" aria-pressed="${CURRENT_LANGUAGE === 'en'}">En</button></div>
+      <div class="language-switch" role="group" aria-label="Language"><button type="button" data-language="ko" aria-pressed="${CURRENT_LANGUAGE === 'ko'}">KO</button><span aria-hidden="true">/</span><button type="button" data-language="en" aria-pressed="${CURRENT_LANGUAGE === 'en'}">EN</button></div>
       <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span aria-hidden="true"></span></button>
       <button class="menu" type="button" aria-label="메뉴">☰</button>
     </div>`;

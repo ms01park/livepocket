@@ -44,7 +44,7 @@ const EN = {
   '로그인 또는 간편가입 후 예매를 계속할 수 있습니다.': 'Log in or sign up to continue booking.', '필수': 'Required', '선택해 주세요': 'Please select', '티켓 종류': 'Ticket type', '수량': 'Quantity', '예매자 이름': 'Booker name', '핸드폰번호': 'Mobile number', '추가 질문': 'Additional questions',
   '결제 방식': 'Payment method', '무통장 입금': 'Bank transfer', '신청 후 24시간 이내 입금': 'Pay within 24 hours of booking', '환불 규정': 'Refund policy', '공연 취소 및 환불 규정을 확인해 주세요.': 'Please review the cancellation and refund policy.', '예매 및 취소 규정을 확인했습니다.': 'I have reviewed the booking and cancellation policy.', '결제 안내 및 환불 규정을 확인했습니다.': 'I have reviewed the payment information and refund policy.', '예매 신청하기': 'Submit booking', '결제 금액': 'Total',
   '예매 완료 — Live Pocket V3.0': 'Booking complete — Live Pocket V3.0', '예매 신청이 완료됐어요.': 'Your booking request is complete.', '마이페이지 예매 상세에서 현장 입장용 QR 티켓을 확인할 수 있습니다.': 'Your entry QR ticket will appear in the booking details on My page.',
-  '입금 계좌': 'Bank account', '신한은행 110-555-202606': 'Shinhan Bank 110-555-202606', '예금주 주식회사 라이브포켓': 'Account holder: Live Pocket Co., Ltd.', '마이페이지로 가기': 'Go to My page', '공연 더 보기': 'Browse more shows', '예매 번호': 'Booking number', '입금 기한': 'Payment deadline', '입장 QR': 'Entry QR', '입장 시 보여주세요': 'Show this at entry',
+  '입금 계좌': 'Bank account', '예금주': 'Account holder:', '마이페이지로 가기': 'Go to My page', '공연 더 보기': 'Browse more shows', '예매 번호': 'Booking number', '입금 기한': 'Payment deadline', '입장 QR': 'Entry QR', '입장 시 보여주세요': 'Show this at entry',
   '마이페이지에서 예매 내역을 확인해 주세요.': 'Check your bookings on My page.', '마이페이지 — Live Pocket V3.0': 'My page — Live Pocket V3.0', '내 정보를 불러오는 중…': 'Loading your account…', '로그인 또는 간편가입 후 마이페이지를 이용할 수 있습니다.': 'Log in or sign up to use My page.', '님,': ',', '반가워요.': 'welcome back.',
   '예매 내역': 'Bookings', '찜한 공연': 'Favorites', '공연 관리': 'Manage shows', '최근 예매': 'Recent bookings', '예매 확인': 'View booking', '아직 예매한 공연이 없습니다.': 'You have no bookings yet.', '찜한 공연이 없습니다.': 'You have no favorite shows yet.',
   '내 공연 관리': 'My shows', '가입한 계정으로 공연을 등록하고 운영할 수 있습니다.': 'Create and manage shows with this account.', '+ 공연 등록': '+ Add show', '입금 대기': 'Awaiting payment', '예매 완료': 'Booked', '취소': 'Cancelled', '운영 중': 'Active', '숨김': 'Hidden',
@@ -57,10 +57,10 @@ const EN = {
   '데이터가 없습니다.': 'No data available.', '운영 공연': 'Active shows', '전체 찜': 'Total favorites', '예매 금액': 'Booking revenue', '담당 공연을 등록·수정하고 판매 현황을 확인합니다.': 'Create and edit your shows, and review sales.', '입금 확인과 예매 상태를 처리합니다.': 'Confirm payments and manage booking status.',
   '이름': 'Name', '권한': 'Role', '공연 등록 회원': 'Show creator', '일반 회원': 'Member', '전체 회원': 'All members', '공연 등록 경험과 계정 상태를 확인합니다.': 'Review account status and show creation history.', '구분': 'Type', '상태': 'Status', '관리': 'Actions',
   '전체 공연 관리': 'Manage all shows', '플랫폼에 등록된 공연을 관리합니다.': 'Manage every show on the platform.', '전체 예매 관리': 'Manage all bookings', '홈 롤링 배너의 내용과 노출 순서를 관리합니다.': 'Manage home banner content and display order.', '+ 신규 배너': '+ New banner', '배너 순서 이동': 'Reorder banner', '순서': 'Order', '노출 중': 'Visible',
-  '공연 / 예매자': 'Show / Booker', '추가 답변': 'Additional answers', '금액': 'Amount', '처리': 'Action', '입금 확인': 'Confirm payment', '결제 완료': 'Paid',
+  '공연 / 예매자': 'Show / Booker', '추가 답변': 'Additional answers', '금액': 'Amount', '처리': 'Action', '입금 확인': 'Confirm payment', '결제 완료': 'Paid', '예약 취소': 'Cancel booking',
   '공연 등록/수정 — Live Pocket V3.0': 'Create/edit show — Live Pocket V3.0', '공연 입력 화면을 불러오는 중…': 'Loading show editor…', '이미지 편집': 'Edit image', '확대/축소': 'Zoom', '적용': 'Apply', '아티스트 수정': 'Edit artist', '아티스트 추가': 'Add artist', '아티스트명': 'Artist name', '아티스트 이미지': 'Artist image', 'SNS 링크 (선택)': 'Social link (optional)', '유튜브 링크 (선택)': 'YouTube link (optional)',
   '이미지를 선택하지 않으면 기존 이미지를 유지합니다.': 'Leave this empty to keep the current image.', '기존 아티스트를 선택하면 등록된 이미지와 링크를 재사용합니다.': 'Select an existing artist to reuse their image and links.', '수정 저장': 'Save changes', '추가': 'Add', '아티스트 추가 버튼으로 출연진을 등록해 주세요.': 'Use Add artist to enter the lineup.', '장르 추가': 'Add genre', '장르명': 'Genre name',
-  '일반 티켓': 'General admission', '일반티켓': 'General admission', '사전 예매 티켓 (일반)': 'Advance ticket (General)', '중·고·대학생 티켓 (학생증 필수 지참)': 'Student ticket (Middle school, high school & university; student ID required)', '현장 구매 티켓 (잔여석 발생 시에만 판매)': 'Door ticket (Only available if seats remain)', '뒤풀이 참석 여부': 'After-party attendance', '뒤풀이 참석여부': 'After-party attendance', '뒤풀이에 참석하시나요?': 'Will you join the after-party?',
+  '일반 티켓': 'General admission', '일반티켓': 'General admission', '사전 예매 티켓 (일반)': 'Advance ticket (General)', '중·고·대학생 티켓 (학생증 필수 지참)': 'Student ticket (Middle, high & university student; student ID required)', '현장 구매 티켓 (잔여석 발생 시에만 판매)': 'Door ticket (Only available if seats remain)', '뒤풀이 참석 여부': 'After-party attendance', '뒤풀이 참석여부': 'After-party attendance', '뒤풀이에 참석하시나요?': 'Will you join the after-party?',
   '참석': 'Attending', '불참': 'Not attending', '예': 'Yes', '아니오': 'No', '티켓명': 'Ticket name', '선택지 입력': 'Enter an option', '질문': 'Question', '예: 뒤풀이에 참석하시나요?': 'e.g. Will you join the after-party?', '질문 삭제': 'Delete question', '선택지 추가': 'Add option', '공연 수정': 'Edit show', '공연 등록': 'Create show',
   '공연 정보, 티켓, 예매 질문을 한 화면에서 관리합니다.': 'Manage show details, tickets, and booking questions in one place.', '포스터 이미지': 'Poster image', '이미지 선택 후 포스터 비율에 맞게 확대/축소와 위치를 조정합니다.': 'After choosing an image, adjust its scale and position to fit the poster.',
   '주소': 'Address', '예매 시작': 'Booking opens', '티켓 설정': 'Ticket settings', '티켓 추가': 'Add ticket', '예매 추가 질문': 'Additional booking questions', '예매자가 선택할 질문과 선택지를 필요한 만큼 추가할 수 있습니다.': 'Add as many booking questions and options as needed.', '질문 추가': 'Add question', '결제 안내 문구': 'Payment instructions', '저장': 'Save',
@@ -72,7 +72,7 @@ const EN = {
   '가까운 소규모 공연을 발견하고 예매하는 Live Pocket V3.0': 'Discover and book intimate live shows with Live Pocket V3.0', '작은 무대, 크게 뛰는 밤': 'Small stage, electric night', '지금 가장 가까운 라이브를 만나보세요.': 'Find the live show closest to you.', '이번 주말의 재즈': 'Jazz this weekend', '좋아하는 음악을 공연장에서 듣는 시간.': 'Hear the music you love, live.', 'QR로 빠르게 확인': 'Fast entry with QR', '공연장 입구에서 예매 정보를 빠르게 확인하세요.': 'Verify your booking quickly at the venue entrance.',
   '인디록': 'Indie rock', '재즈': 'Jazz', '어쿠스틱': 'Acoustic', '힙합': 'Hip-hop', '클래식': 'Classical', '전자음악': 'Electronic', '밤의 사운드 체크': 'Night Soundcheck', '성수 재즈 나이트': 'Seongsu Jazz Night', '망원 어쿠스틱 데이': 'Mangwon Acoustic Day',
   '작은 공연장에서 가까운 거리로 생생한 사운드를 만나는 인디 라이브입니다.': 'An intimate indie show that puts you close to the stage and every detail of the sound.', '작은 바에서 만나는 따뜻한 콘트라베이스와 피아노의 밤입니다.': 'A warm evening of double bass and piano in an intimate bar.', '싱어송라이터의 목소리에 집중하는 60분 소규모 공연입니다.': 'An intimate 60-minute show centered on the voice of a singer-songwriter.',
-  '이 공연을 목록에서 삭제할까요? 기존 예매 내역은 보존됩니다.': 'Remove this show from the list? Existing bookings will be kept.', '이 배너를 삭제할까요? 홈 화면에서도 더 이상 노출되지 않습니다.': 'Delete this banner? It will no longer appear on the home page.',
+  '이 공연을 목록에서 삭제할까요? 기존 예매 내역은 보존됩니다.': 'Remove this show from the list? Existing bookings will be kept.', '이 배너를 삭제할까요? 홈 화면에서도 더 이상 노출되지 않습니다.': 'Delete this banner? It will no longer appear on the home page.', '미입금 예약을 취소할까요? 취소된 티켓 수량은 다시 판매 가능 수량으로 복구됩니다.': 'Cancel this unpaid booking? Its tickets will be returned to the available inventory.',
   '수정할 장르명을 입력해 주세요.': 'Enter the updated genre name.', '이 장르를 목록에서 삭제할까요?': 'Delete this genre from the list?', '해당 회원을 삭제 상태로 변경할까요?': 'Mark this member as deleted?',
 };
 
@@ -603,9 +603,17 @@ async function booking() {
   });
 }
 
-function complete() {
-  const reservation = JSON.parse(sessionStorage.getItem('lastReservation') || 'null');
-  $('#complete-info').innerHTML = reservation ? `<div><span>예매 번호</span><strong>${esc(reservation.reservationNo)}</strong></div><div><span>결제 금액</span><strong>${won(reservation.totalAmount)}</strong></div><div><span>입금 기한</span><strong>${date(reservation.depositDeadline)}</strong></div><div><span>입장 QR</span><strong>입장 시 보여주세요</strong></div>` : '<p>마이페이지에서 예매 내역을 확인해 주세요.</p>';
+async function complete() {
+  let reservation = JSON.parse(sessionStorage.getItem('lastReservation') || 'null');
+  const reservationId = qs('id');
+  if (reservationId && (!reservation || Number(reservation.id) !== Number(reservationId) || !reservation.bankAccount)) {
+    try { reservation = await api(`/api/me/reservations/${reservationId}`); } catch {}
+  }
+  if (reservation) {
+    $('#complete-info').innerHTML = `<div><span>예매 번호</span><strong>${esc(reservation.reservationNo || reservation.reservation_no)}</strong></div><div><span>결제 금액</span><strong>${won(reservation.totalAmount ?? reservation.total_amount)}</strong></div><div><span>입금 기한</span><strong>${date(reservation.depositDeadline || reservation.deposit_deadline)}</strong></div><div><span>입장 QR</span><strong>입장 시 보여주세요</strong></div>`;
+    $('#complete-bank-account').textContent = reservation.bankAccount || reservation.bank_account || '신한은행 110-555-202606';
+    $('#complete-account-holder').textContent = reservation.accountHolder || reservation.account_holder || '주식회사 라이브포켓';
+  } else $('#complete-info').innerHTML = '<p>마이페이지에서 예매 내역을 확인해 주세요.</p>';
 }
 
 const stats = items => `<div class="stats">${items.map(([label, value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join('')}</div>`;
@@ -1052,7 +1060,7 @@ function showFormHtml(item = {}) {
       <div class="two"><label>예매 마감<input type="datetime-local" name="booking_close_at" required value="${localDate(item.booking_close_at)}"></label><label>1회 최대 구매 수량<input type="number" name="max_tickets_per_order" min="1" max="100" required value="${Number(item.max_tickets_per_order || 4)}"><small>예매자 한 명이 한 번에 구매할 수 있는 최대 티켓 수입니다.</small></label></div>
       <div class="ticket-editor"><b>티켓 설정</b><div id="ticket-rows">${tickets.map(ticketRow).join('')}</div><button class="tiny secondary" type="button" data-ticket-add>티켓 추가</button></div>
       <div class="question-editor"><div><b>예매 추가 질문</b><small>답변 형식과 질문·선택지별 설명을 설정할 수 있습니다.</small></div><div id="question-rows">${questions.map(questionRowHtml).join('')}</div><button class="tiny secondary" type="button" data-question-add>질문 추가</button></div>
-      <div class="localized-fields"><label><span class="default-field-label">결제 안내 문구</span><span class="locale-badge">KO · 국문 결제 안내</span><textarea name="deposit_notice" required>${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}</textarea></label><label class="english-field"><span class="locale-badge">EN · English payment information</span><textarea name="deposit_notice_en">${esc(item.deposit_notice_en || '')}</textarea></label></div><div class="localized-fields"><label><span class="default-field-label">환불 규정</span><span class="locale-badge">KO · 국문 환불 규정</span><textarea name="refund_policy" required>${esc(item.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</textarea></label><label class="english-field"><span class="locale-badge">EN · English refund policy</span><textarea name="refund_policy_en">${esc(item.refund_policy_en || '')}</textarea></label></div>
+      <div class="localized-fields"><label><span class="default-field-label">결제 안내 문구</span><span class="locale-badge">KO · 국문 결제 안내</span><textarea name="deposit_notice" required>${esc(item.deposit_notice || '신청 후 24시간 이내 입금')}</textarea></label><label class="english-field"><span class="locale-badge">EN · English payment information</span><textarea name="deposit_notice_en">${esc(item.deposit_notice_en || '')}</textarea></label></div><div class="two"><label>입금 계좌<input name="bank_account" required maxlength="100" value="${esc(item.bank_account || '신한은행 110-555-202606')}" placeholder="은행명 000-000-000000"></label><label>예금주<input name="account_holder" required maxlength="100" value="${esc(item.account_holder || '주식회사 라이브포켓')}" placeholder="예금주명"></label></div><div class="localized-fields"><label><span class="default-field-label">환불 규정</span><span class="locale-badge">KO · 국문 환불 규정</span><textarea name="refund_policy" required>${esc(item.refund_policy || '공연 취소 및 환불 규정을 확인해 주세요.')}</textarea></label><label class="english-field"><span class="locale-badge">EN · English refund policy</span><textarea name="refund_policy_en">${esc(item.refund_policy_en || '')}</textarea></label></div>
       <div id="show-form-error" class="alert error hidden"></div><div class="button-row"><a class="btn outline" href="/mypage.html">취소</a><button class="btn primary grow" type="submit">${editing ? '수정 저장' : '공연 등록'}</button></div>
     </form></section>`;
 }
@@ -1159,11 +1167,17 @@ async function openStatsModal(id) {
   const data = await api(`/api/admin/performances/${id}/stats`);
   const max = Math.max(1, ...data.daily.map(row => Number(row.reservations)));
   const summary = data.summary || {};
-  const reservationRows = data.reservations.length ? data.reservations.map(row => `<article class="stats-reservation-row"><span><b>${esc(row.reservation_no)}</b><small>${esc(row.user_name)} · ${esc(row.email)}</small>${(row.answers || []).map(answer => `<small class="reservation-answer"><b>${esc(answer.question_text)}</b> ${esc(answer.answer_text)}</small>`).join('')}</span><span class="stats-reservation-payment"><strong>${won(row.total_amount)}</strong><em>${statusName(row.status)}</em></span><span>${row.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-stats-paid="${row.id}" type="button">입금 확인</button>` : '처리 완료'}</span></article>`).join('') : '<div class="empty">아직 예매가 없습니다.</div>';
+  const reservationRows = data.reservations.length ? data.reservations.map(row => `<article class="stats-reservation-row"><span><b>${esc(row.reservation_no)}</b><small>${esc(row.user_name)} · ${esc(row.email)}</small>${(row.answers || []).map(answer => `<small class="reservation-answer"><b>${esc(answer.question_text)}</b> ${esc(answer.answer_text)}</small>`).join('')}</span><span class="stats-reservation-payment"><strong>${won(row.total_amount)}</strong><em>${statusName(row.status)}</em></span><span class="row-actions">${row.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-stats-paid="${row.id}" type="button">입금 확인</button><button class="tiny danger" data-stats-cancel="${row.id}" type="button">예약 취소</button>` : '처리 완료'}</span></article>`).join('') : '<div class="empty">아직 예매가 없습니다.</div>';
   document.body.insertAdjacentHTML('beforeend', `<div class="modal stats-modal"><article><button class="modal-close" type="button" aria-label="닫기">×</button><div class="panel-title"><div><span class="kicker">BOOKING STATUS</span><h2>예매 현황</h2></div></div><div class="compact-stats">${stats([['판매 티켓', `${Number(summary.soldTickets || 0)}/${Number(summary.totalTickets || 0)}매`], ['총 결제 금액', won(summary.totalAmount)], ['입금 확인 금액', won(summary.paidAmount)], ['예매 건수', `${data.reservations.length}건`]])}</div><div class="daily-chart compact">${data.daily.length ? data.daily.map(row => `<div><i style="height:${Math.max(4, Number(row.reservations) / max * 72)}px"></i><small>${esc(row.date.slice(5))}</small><b>${Number(row.reservations)}</b></div>`).join('') : '<p class="empty">아직 예매가 없습니다.</p>'}</div><div class="stats-reservation-list">${reservationRows}</div></article></div>`);
   $('.stats-modal .modal-close').addEventListener('click', () => $('.stats-modal').remove());
   $$('[data-stats-paid]').forEach(button => button.addEventListener('click', async () => {
     await api(`/api/admin/reservations/${button.dataset.statsPaid}`, { method: 'PATCH', body: JSON.stringify({ status: 'PAID' }) });
+    $('.stats-modal')?.remove();
+    openStatsModal(id);
+  }));
+  $$('[data-stats-cancel]').forEach(button => button.addEventListener('click', async () => {
+    if (!confirm(t('미입금 예약을 취소할까요? 취소된 티켓 수량은 다시 판매 가능 수량으로 복구됩니다.'))) return;
+    await api(`/api/admin/reservations/${button.dataset.statsCancel}`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELLED' }) });
     $('.stats-modal')?.remove();
     openStatsModal(id);
   }));
@@ -1272,11 +1286,18 @@ function bindBannerActions() {
 async function bindAdminActions() {
   if ($('#admin-reservations')) {
     const rows = await api('/api/admin/reservations');
-    $('#admin-reservations').innerHTML = table(['예매번호', '공연 / 예매자', '추가 답변', '금액', '상태', '처리'], rows.map(reservation => `<tr><td>${esc(reservation.reservation_no)}</td><td><b>${esc(reservation.title)}</b><small>${esc(reservation.user_name)}</small></td><td>${(reservation.answers || []).length ? reservation.answers.map(answer => `<small class="reservation-answer"><b>${esc(answer.question_text)}</b><br>${esc(answer.answer_text)}</small>`).join('') : '—'}</td><td>${won(reservation.total_amount)}</td><td>${statusName(reservation.status)}</td><td>${reservation.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-paid="${reservation.id}">입금 확인</button>` : '—'}</td></tr>`).join(''));
+    $('#admin-reservations').innerHTML = table(['예매번호', '공연 / 예매자', '추가 답변', '금액', '상태', '처리'], rows.map(reservation => `<tr><td>${esc(reservation.reservation_no)}</td><td><b>${esc(reservation.title)}</b><small>${esc(reservation.user_name)}</small></td><td>${(reservation.answers || []).length ? reservation.answers.map(answer => `<small class="reservation-answer"><b>${esc(answer.question_text)}</b><br>${esc(answer.answer_text)}</small>`).join('') : '—'}</td><td>${won(reservation.total_amount)}</td><td>${statusName(reservation.status)}</td><td><div class="row-actions">${reservation.status === 'WAITING_DEPOSIT' ? `<button class="tiny" data-paid="${reservation.id}">입금 확인</button><button class="tiny danger" data-cancel="${reservation.id}">예약 취소</button>` : '—'}</div></td></tr>`).join(''));
     $$('[data-paid]').forEach(button => button.addEventListener('click', async () => {
       await api(`/api/admin/reservations/${button.dataset.paid}`, { method: 'PATCH', body: JSON.stringify({ status: 'PAID' }) });
       button.closest('tr').children[4].textContent = '결제 완료';
       button.remove();
+    }));
+    $$('[data-cancel]').forEach(button => button.addEventListener('click', async () => {
+      if (!confirm(t('미입금 예약을 취소할까요? 취소된 티켓 수량은 다시 판매 가능 수량으로 복구됩니다.'))) return;
+      await api(`/api/admin/reservations/${button.dataset.cancel}`, { method: 'PATCH', body: JSON.stringify({ status: 'CANCELLED' }) });
+      const row = button.closest('tr');
+      row.children[4].textContent = statusName('CANCELLED');
+      row.children[5].textContent = '—';
     }));
   }
 }

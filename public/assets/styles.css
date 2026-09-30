@@ -503,6 +503,8 @@ body[data-page="login"] #header{display:none}
 .stats-reservation-row em{justify-self:end;text-align:right}
 .stats-reservation-row>span:last-child{justify-self:end;text-align:right}
 .stats-reservation-row .tiny{justify-content:center}
+.stats-reservation-row .row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.stats-reservation-row .row-actions .tiny{width:auto;white-space:nowrap}
 .stats-modal .compact-stats .stats{align-items:stretch;gap:6px;margin-bottom:10px}
 .stats-modal .compact-stats .stats article{display:grid;align-content:center;justify-items:center;min-height:58px;padding:7px 6px;text-align:center;border-radius:10px}
 .stats-modal .compact-stats .stats small{display:block;font-size:9.5px;line-height:1.1;margin:0;color:var(--muted)}

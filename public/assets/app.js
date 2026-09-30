@@ -44,7 +44,7 @@ const EN = {
   '로그인 또는 간편가입 후 예매를 계속할 수 있습니다.': 'Log in or sign up to continue booking.', '필수': 'Required', '선택해 주세요': 'Please select', '티켓 종류': 'Ticket type', '수량': 'Quantity', '예매자 이름': 'Booker name', '핸드폰번호': 'Mobile number', '추가 질문': 'Additional questions',
   '결제 방식': 'Payment method', '무통장 입금': 'Bank transfer', '신청 후 24시간 이내 입금': 'Pay within 24 hours of booking', '환불 규정': 'Refund policy', '공연 취소 및 환불 규정을 확인해 주세요.': 'Please review the cancellation and refund policy.', '예매 및 취소 규정을 확인했습니다.': 'I have reviewed the booking and cancellation policy.', '결제 안내 및 환불 규정을 확인했습니다.': 'I have reviewed the payment information and refund policy.', '예매 신청하기': 'Submit booking', '결제 금액': 'Total',
   '예매 완료 — Live Pocket V3.0': 'Booking complete — Live Pocket V3.0', '예매 신청이 완료됐어요.': 'Your booking request is complete.', '마이페이지 예매 상세에서 현장 입장용 QR 티켓을 확인할 수 있습니다.': 'Your entry QR ticket will appear in the booking details on My page.',
-  '입금 계좌': 'Bank account', '예금주': 'Account holder:', '마이페이지로 가기': 'Go to My page', '공연 더 보기': 'Browse more shows', '예매 번호': 'Booking number', '입금 기한': 'Payment deadline', '입장 QR': 'Entry QR', '입장 시 보여주세요': 'Show this at entry',
+  '입금 계좌': 'Bank account', '예금주': 'Account holder:', 'QR 코드 확인': 'View QR code', '마이페이지로 가기': 'Go to My page', '공연 더 보기': 'Browse more shows', '예매 번호': 'Booking number', '입금 기한': 'Payment deadline', '입장 QR': 'Entry QR', '입장 시 보여주세요': 'Show this at entry',
   '마이페이지에서 예매 내역을 확인해 주세요.': 'Check your bookings on My page.', '마이페이지 — Live Pocket V3.0': 'My page — Live Pocket V3.0', '내 정보를 불러오는 중…': 'Loading your account…', '로그인 또는 간편가입 후 마이페이지를 이용할 수 있습니다.': 'Log in or sign up to use My page.', '님,': ',', '반가워요.': 'welcome back.',
   '예매 내역': 'Bookings', '찜한 공연': 'Favorites', '공연 관리': 'Manage shows', '최근 예매': 'Recent bookings', '예매 확인': 'View booking', '아직 예매한 공연이 없습니다.': 'You have no bookings yet.', '찜한 공연이 없습니다.': 'You have no favorite shows yet.',
   '내 공연 관리': 'My shows', '가입한 계정으로 공연을 등록하고 운영할 수 있습니다.': 'Create and manage shows with this account.', '+ 공연 등록': '+ Add show', '입금 대기': 'Awaiting payment', '예매 완료': 'Booked', '취소': 'Cancelled', '운영 중': 'Active', '숨김': 'Hidden',
@@ -87,6 +87,34 @@ function localized(record, field) {
   if (!record) return '';
   const translated = String(record[`${field}_en`] || '').trim();
   return CURRENT_LANGUAGE === 'en' && translated ? translated : String(record[field] || '');
+}
+
+const ENGLISH_BANK_NAMES = [
+  ['SC제일은행', 'Standard Chartered Bank Korea'],
+  ['IBK기업은행', 'Industrial Bank of Korea'],
+  ['KB국민은행', 'KB Kookmin Bank'],
+  ['KEB하나은행', 'Hana Bank'],
+  ['NH농협은행', 'NongHyup Bank'],
+  ['한국씨티은행', 'Citibank Korea Inc.'],
+  ['신한은행', 'Shinhan Bank'],
+  ['국민은행', 'KB Kookmin Bank'],
+  ['우리은행', 'Woori Bank'],
+  ['하나은행', 'Hana Bank'],
+  ['농협은행', 'NongHyup Bank'],
+  ['기업은행', 'Industrial Bank of Korea'],
+  ['카카오뱅크', 'KakaoBank'],
+  ['토스뱅크', 'Toss Bank'],
+  ['케이뱅크', 'Kbank'],
+  ['씨티은행', 'Citibank Korea Inc.'],
+];
+
+function localizedBankAccount(value) {
+  const source = String(value ?? '');
+  if (CURRENT_LANGUAGE !== 'en') return source;
+  const leadingSpace = source.match(/^\s*/)?.[0] || '';
+  const account = source.slice(leadingSpace.length);
+  const match = ENGLISH_BANK_NAMES.find(([name]) => account === name || (account.startsWith(name) && /^[\s\d:-]/.test(account[name.length] || '')));
+  return match ? `${leadingSpace}${match[1]}${account.slice(match[0].length)}` : source;
 }
 
 function translateNode(root) {
@@ -611,9 +639,13 @@ async function complete() {
   }
   if (reservation) {
     $('#complete-info').innerHTML = `<div><span>예매 번호</span><strong>${esc(reservation.reservationNo || reservation.reservation_no)}</strong></div><div><span>결제 금액</span><strong>${won(reservation.totalAmount ?? reservation.total_amount)}</strong></div><div><span>입금 기한</span><strong>${date(reservation.depositDeadline || reservation.deposit_deadline)}</strong></div><div><span>입장 QR</span><strong>입장 시 보여주세요</strong></div>`;
-    $('#complete-bank-account').textContent = reservation.bankAccount || reservation.bank_account || '신한은행 110-555-202606';
+    $('#complete-bank-account').textContent = localizedBankAccount(reservation.bankAccount || reservation.bank_account || '신한은행 110-555-202606');
     $('#complete-account-holder').textContent = reservation.accountHolder || reservation.account_holder || '주식회사 라이브포켓';
-  } else $('#complete-info').innerHTML = '<p>마이페이지에서 예매 내역을 확인해 주세요.</p>';
+    $('#complete-qr').addEventListener('click', () => reservationModal(reservation.id, null));
+  } else {
+    $('#complete-info').innerHTML = '<p>마이페이지에서 예매 내역을 확인해 주세요.</p>';
+    $('#complete-qr').classList.add('hidden');
+  }
 }
 
 const stats = items => `<div class="stats">${items.map(([label, value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join('')}</div>`;
@@ -650,14 +682,14 @@ async function userPage(user) {
   if (qs('reservation')) reservationModal(qs('reservation'));
 }
 
-async function reservationModal(id) {
+async function reservationModal(id, closeUrl = '/mypage.html') {
   try {
     const reservation = await api(`/api/me/reservations/${id}`);
     const canShowQr = reservation.status === 'PAID' || reservation.status === 'USED';
     const verifyUrl = reservation.qr_verify_url || (reservation.qr_token ? `${location.origin}/tickets/verify/${encodeURIComponent(reservation.qr_token)}` : '');
     const answers = (reservation.answers || []).map(answer => `<div><dt>${esc(answer.question_text)}</dt><dd>${esc(answer.answer_text)}</dd></div>`).join('');
     document.body.insertAdjacentHTML('beforeend', `<div class="modal"><article><button class="modal-close" aria-label="닫기">×</button><span class="pill">${statusName(reservation.status)}</span><h2>${esc(reservation.title)}</h2><dl><div><dt>예매 번호</dt><dd>${esc(reservation.reservation_no)}</dd></div><div><dt>공연 일시</dt><dd>${date(reservation.start_at)}</dd></div><div><dt>결제 금액</dt><dd>${won(reservation.total_amount)}</dd></div>${answers}</dl>${canShowQr && verifyUrl ? `<img class="qr-image" src="${qrImageUrl(verifyUrl)}" alt="예매 정보 확인 QR코드"><small class="qr-token">공연장 입구에서 이 QR코드를 제시해 주세요.<br>스태프가 예매 정보를 확인한 후 입장을 안내합니다.</small>` : `<div class="notice"><b>QR 발행 대기 중</b><span>입금 확인 후 이곳에 예매 정보 확인 QR이 표시됩니다.</span></div>`}</article></div>`);
-    $('.modal-close').addEventListener('click', () => { history.replaceState(null, '', '/mypage.html'); $('.modal').remove(); });
+    $('.modal-close').addEventListener('click', () => { if (closeUrl) history.replaceState(null, '', closeUrl); $('.modal').remove(); });
     $('.modal').addEventListener('click', event => { if (event.target === event.currentTarget) $('.modal-close').click(); });
   } catch (error) { alert(error.message); }
 }

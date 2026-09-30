@@ -4,23 +4,28 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { Pool } = require('pg');
 const sharp = require('sharp');
 
 loadEnv();
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT || 3000);
 const BASE = process.env.APP_BASE_URL || `http://localhost:${PORT}`;
+const IS_MIRROR = process.env.MIRROR_MODE === '1';
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/live_pocket';
 const DEFAULT_DEPOSIT_NOTICE = '신청 후 24시간 이내 입금';
 const DEFAULT_REFUND_POLICY = '공연 취소 및 환불 규정을 확인해 주세요.';
 const SHOULD_INIT_DB = process.env.INIT_DB_ON_START === '1' || (!process.env.VERCEL && process.env.INIT_DB_ON_START !== '0');
 const profanityFilter = loadProfanityFilter();
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  max: Number(process.env.PGPOOL_MAX || 1),
-  ssl: shouldUseSsl(DATABASE_URL) ? { rejectUnauthorized: false } : false,
-});
+const Pool = IS_MIRROR
+  ? require('pg-mem').newDb({ autoCreateForeignKeyIndices: true }).adapters.createPg().Pool
+  : require('pg').Pool;
+const pool = IS_MIRROR
+  ? new Pool()
+  : new Pool({
+      connectionString: DATABASE_URL,
+      max: Number(process.env.PGPOOL_MAX || 1),
+      ssl: shouldUseSsl(DATABASE_URL) ? { rejectUnauthorized: false } : false,
+    });
 
 function loadEnv() {
   const file = path.join(__dirname, '.env');
@@ -88,9 +93,9 @@ function verifyPassword(value, stored = '') {
 }
 
 async function initDb() {
-  await pool.query(`
+  const schemaSql = `
     CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL, phone TEXT DEFAULT '', role TEXT NOT NULL CHECK(role IN ('USER','MANAGER','SUPER_ADMIN')), status TEXT DEFAULT 'ACTIVE', password_hash TEXT, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS performances (id SERIAL PRIMARY KEY, manager_id INTEGER REFERENCES users(id), title TEXT NOT NULL, title_en TEXT DEFAULT '', genre TEXT NOT NULL, artists TEXT NOT NULL, description TEXT NOT NULL, description_en TEXT DEFAULT '', poster_url TEXT NOT NULL, venue_name TEXT NOT NULL, venue_name_en TEXT DEFAULT '', venue_description TEXT DEFAULT '', venue_description_en TEXT DEFAULT '', address TEXT NOT NULL, address_en TEXT DEFAULT '', start_at TEXT NOT NULL, booking_start_at TEXT DEFAULT (CURRENT_TIMESTAMP::TEXT), booking_close_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'OPEN', host_avatar_url TEXT DEFAULT '/assets/host-avatar.svg', artist_avatar_url TEXT DEFAULT '/assets/artist-avatar.svg', deposit_notice TEXT DEFAULT '신청 후 24시간 이내 입금', deposit_notice_en TEXT DEFAULT '', refund_policy TEXT DEFAULT '공연 취소 및 환불 규정을 확인해 주세요.', refund_policy_en TEXT DEFAULT '', max_tickets_per_order INTEGER DEFAULT 4, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS performances (id SERIAL PRIMARY KEY, manager_id INTEGER REFERENCES users(id), title TEXT NOT NULL, title_en TEXT DEFAULT '', genre TEXT NOT NULL, artists TEXT NOT NULL, description TEXT NOT NULL, description_en TEXT DEFAULT '', poster_url TEXT NOT NULL, venue_name TEXT NOT NULL, venue_name_en TEXT DEFAULT '', venue_description TEXT DEFAULT '', venue_description_en TEXT DEFAULT '', address TEXT NOT NULL, address_en TEXT DEFAULT '', start_at TEXT NOT NULL, booking_start_at ${IS_MIRROR ? "TEXT DEFAULT ''" : 'TEXT DEFAULT (CURRENT_TIMESTAMP::TEXT)'}, booking_close_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'OPEN', host_avatar_url TEXT DEFAULT '/assets/host-avatar.svg', artist_avatar_url TEXT DEFAULT '/assets/artist-avatar.svg', deposit_notice TEXT DEFAULT '신청 후 24시간 이내 입금', deposit_notice_en TEXT DEFAULT '', refund_policy TEXT DEFAULT '공연 취소 및 환불 규정을 확인해 주세요.', refund_policy_en TEXT DEFAULT '', max_tickets_per_order INTEGER DEFAULT 4, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS ticket_types (id SERIAL PRIMARY KEY, performance_id INTEGER NOT NULL REFERENCES performances(id), name TEXT NOT NULL, price INTEGER NOT NULL, total_quantity INTEGER NOT NULL, remaining_quantity INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS reservations (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), performance_id INTEGER NOT NULL REFERENCES performances(id), reservation_no TEXT UNIQUE NOT NULL, status TEXT NOT NULL DEFAULT 'WAITING_DEPOSIT', depositor_name TEXT NOT NULL, phone TEXT NOT NULL, total_amount INTEGER NOT NULL, deposit_deadline TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS reservation_tickets (id SERIAL PRIMARY KEY, reservation_id INTEGER NOT NULL REFERENCES reservations(id), ticket_type_id INTEGER NOT NULL REFERENCES ticket_types(id), quantity INTEGER NOT NULL, price INTEGER NOT NULL);
@@ -105,7 +110,7 @@ async function initDb() {
     ALTER TABLE qr_tickets ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ;
     ALTER TABLE performances ADD COLUMN IF NOT EXISTS host_avatar_url TEXT DEFAULT '/assets/host-avatar.svg';
     ALTER TABLE performances ADD COLUMN IF NOT EXISTS artist_avatar_url TEXT DEFAULT '/assets/artist-avatar.svg';
-    ALTER TABLE performances ADD COLUMN IF NOT EXISTS booking_start_at TEXT DEFAULT (CURRENT_TIMESTAMP::TEXT);
+    ALTER TABLE performances ADD COLUMN IF NOT EXISTS booking_start_at ${IS_MIRROR ? "TEXT DEFAULT ''" : 'TEXT DEFAULT (CURRENT_TIMESTAMP::TEXT)'};
     ALTER TABLE performances ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
     ALTER TABLE performances ADD COLUMN IF NOT EXISTS deposit_notice TEXT DEFAULT '신청 후 24시간 이내 입금';
     ALTER TABLE performances ADD COLUMN IF NOT EXISTS refund_policy TEXT DEFAULT '공연 취소 및 환불 규정을 확인해 주세요.';
@@ -137,7 +142,8 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS taxonomy_type_active_sort_idx ON taxonomy(type, is_active, sort_order, name);
     CREATE INDEX IF NOT EXISTS performance_questions_performance_idx ON performance_questions(performance_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS reservation_answers_reservation_idx ON reservation_answers(reservation_id, id);
-  `);
+  `;
+  await pool.query(IS_MIRROR ? schemaSql.replaceAll('TIMESTAMPTZ', 'TIMESTAMP') : schemaSql);
 
   const adminEmail = String(process.env.SUPER_ADMIN_EMAIL || '').trim().toLowerCase();
   const adminPass = process.env.SUPER_ADMIN_PASSWORD;
@@ -148,7 +154,16 @@ async function initDb() {
   const admin = await get('SELECT id FROM users WHERE email=?', [adminEmail]);
 
   if (!await get('SELECT id FROM performances LIMIT 1')) {
-    const samples = [
+    const sampleDate = (days, hour) => {
+      const date = new Date(Date.now() + days * 86400000);
+      date.setHours(hour, 0, 0, 0);
+      return date.toISOString();
+    };
+    const samples = IS_MIRROR ? [
+      ['밤의 사운드 체크','인디록','슬로우 라이브 Paper Moon','작은 공연장에서 가까운 거리로 생생한 사운드를 만나는 인디 라이브입니다.','/assets/poster-1.svg','합정 사운드홀 B1','서울 마포구 독막로 21',sampleDate(14,19),sampleDate(14,17),33000,100,38],
+      ['성수 재즈 나이트','재즈','스하리 Quartet','작은 바에서 만나는 따뜻한 콘트라베이스와 피아노의 밤입니다.','/assets/poster-2.svg','성수 블루 라운지','서울 성동구 연무장길 12',sampleDate(21,20),sampleDate(21,18),28000,80,51],
+      ['망원 어쿠스틱 데이','어쿠스틱','소소한 바람과 여름밤','싱어송라이터의 목소리에 집중하는 60분 소규모 공연입니다.','/assets/poster-3.svg','망원 무브먼트','서울 마포구 포은로 8',sampleDate(28,18),sampleDate(28,16),25000,60,12],
+    ] : [
       ['밤의 사운드 체크','인디록','슬로우 라이브 Paper Moon','작은 공연장에서 가까운 거리로 생생한 사운드를 만나는 인디 라이브입니다.','/assets/poster-1.svg','합정 사운드홀 B1','서울 마포구 독막로 21','2026-07-18T19:30:00+09:00','2026-07-18T17:30:00+09:00',33000,100,38],
       ['성수 재즈 나이트','재즈','스하리 Quartet','작은 바에서 만나는 따뜻한 콘트라베이스와 피아노의 밤입니다.','/assets/poster-2.svg','성수 블루 라운지','서울 성동구 연무장길 12','2026-07-25T20:00:00+09:00','2026-07-25T18:00:00+09:00',28000,80,51],
       ['망원 어쿠스틱 데이','어쿠스틱','소소한 바람과 여름밤','싱어송라이터의 목소리에 집중하는 60분 소규모 공연입니다.','/assets/poster-3.svg','망원 무브먼트','서울 마포구 포은로 8','2026-08-02T18:00:00+09:00','2026-08-02T16:00:00+09:00',25000,60,12],
@@ -229,13 +244,13 @@ const performanceSelect = `SELECT p.*,owner.name host_name,
   COALESCE(favorite_stats.favorite_count,0) favorite_count
   FROM performances p
   LEFT JOIN users owner ON owner.id=p.manager_id
-  LEFT JOIN LATERAL (
-    SELECT MIN(price) price,SUM(total_quantity) total,SUM(remaining_quantity) remaining
-    FROM ticket_types WHERE performance_id=p.id
-  ) ticket_stats ON TRUE
-  LEFT JOIN LATERAL (
-    SELECT COUNT(*) favorite_count FROM favorites WHERE performance_id=p.id
-  ) favorite_stats ON TRUE`;
+  LEFT JOIN (
+    SELECT performance_id,MIN(price) price,SUM(total_quantity) total,SUM(remaining_quantity) remaining
+    FROM ticket_types GROUP BY performance_id
+  ) ticket_stats ON ticket_stats.performance_id=p.id
+  LEFT JOIN (
+    SELECT performance_id,COUNT(*) favorite_count FROM favorites GROUP BY performance_id
+  ) favorite_stats ON favorite_stats.performance_id=p.id`;
 async function performanceRows(where = "p.status!='HIDDEN'", args = [], client = pool) { return (await all(`${performanceSelect} WHERE ${where} ORDER BY p.start_at`, args, client)).map(publicPerformance); }
 function canManagePerformance(user, performance) { return user && performance && (user.role === 'SUPER_ADMIN' || Number(performance.manager_id) === Number(user.id)); }
 function artistEntries(namesValue, avatarsValue) {
@@ -270,8 +285,8 @@ function normalizePerformance(input) {
   const normalizedTickets = tickets.map((ticket, index) => {
     const name = String(ticket.name || `티켓 ${index + 1}`).trim();
     const price = Math.max(0, Number(ticket.price));
-    const total = Math.max(1, Number(ticket.total_quantity));
-    if (!name || !Number.isFinite(price) || !Number.isFinite(total)) throw new Error('티켓명, 가격, 수량을 확인해 주세요.');
+    const total = Number(ticket.total_quantity);
+    if (!name || !Number.isFinite(price) || !Number.isFinite(total) || total < 0) throw new Error('티켓명, 가격, 수량을 확인해 주세요.');
     return { name, price: Math.round(price), total_quantity: Math.round(total) };
   });
   const questions = (Array.isArray(input.questions) ? input.questions : []).map((question, index) => {
@@ -564,7 +579,7 @@ async function api(req,res,url){
     }
     const now=Date.now();if(ticket.status!=='OPEN'||new Date(ticket.booking_start_at).getTime()>now||new Date(ticket.booking_close_at).getTime()<now)return json(res,400,{error:'현재 예매 가능한 시간이 아닙니다.'});
     const no=`LP${new Date().toISOString().slice(2,10).replaceAll('-','')}-${crypto.randomInt(100000,999999)}`,deadline=new Date(Date.now()+24*3600e3).toISOString(),totalAmount=ticket.price*qty;
-    const id=await transaction(async client=>{const r=await get('INSERT INTO reservations(user_id,performance_id,reservation_no,depositor_name,phone,total_amount,deposit_deadline) VALUES(?,?,?,?,?,?,?) RETURNING id',[u.id,ticket.performance_id,no,reserverName,phone,totalAmount,deadline],client);await run('INSERT INTO reservation_tickets(reservation_id,ticket_type_id,quantity,price) VALUES(?,?,?,?)',[r.id,ticket.id,qty,ticket.price],client);for(const answer of answers)await run('INSERT INTO reservation_answers(reservation_id,question_id,question_text,answer_text) VALUES(?,?,?,?)',[r.id,answer.question.id,answer.question.question_text,answer.answerText],client);await run('UPDATE ticket_types SET remaining_quantity=remaining_quantity-? WHERE id=?',[qty,ticket.id],client);return r.id;});
+    const id=await transaction(async client=>{const r=await get('INSERT INTO reservations(user_id,performance_id,reservation_no,depositor_name,phone,total_amount,deposit_deadline) VALUES(?,?,?,?,?,?,?) RETURNING id',[u.id,ticket.performance_id,no,reserverName,phone,totalAmount,deadline],client);await run('INSERT INTO reservation_tickets(reservation_id,ticket_type_id,quantity,price) VALUES(?,?,?,?)',[r.id,ticket.id,qty,ticket.price],client);for(const answer of answers)await run('INSERT INTO reservation_answers(reservation_id,question_id,question_text,answer_text) VALUES(?,?,?,?)',[r.id,answer.question.id,answer.question.question_text,answer.answerText],client);if(IS_MIRROR)await run('UPDATE ticket_types SET remaining_quantity=? WHERE id=?',[Number(ticket.remaining_quantity)-qty,ticket.id],client);else await run('UPDATE ticket_types SET remaining_quantity=remaining_quantity-? WHERE id=?',[qty,ticket.id],client);return r.id;});
     return json(res,201,{id,reservationNo:no,depositDeadline:deadline,totalAmount});
   }
   if(req.method==='GET'&&url.pathname==='/api/me/reservations'){const u=await requireRole(req,res);if(!u)return;return json(res,200,(await all(`SELECT r.*,p.title,p.poster_url,p.start_at,p.venue_name FROM reservations r JOIN performances p ON p.id=r.performance_id WHERE r.user_id=? ORDER BY r.created_at DESC`,[u.id])).map(row=>({...row,poster_url:publicImageUrl(row.poster_url,'/api/performance-poster',row.performance_id)})));}
